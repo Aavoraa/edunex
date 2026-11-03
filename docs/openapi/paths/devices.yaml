@@ -1,0 +1,240 @@
+# GPS devices — the device registry, student ↔ device assignments and the one
+# location endpoint every device posts to. A device identifies itself with its
+# device ID and token; the student is always resolved from the ACTIVE
+# assignment, never taken from the request.
+
+/v1/location:
+  post:
+    tags: [GPS Devices]
+    summary: "Device location ingest — the one endpoint for every GPS device (Android phone or hardware tracker)"
+    description: |
+      Steps: validate token → find device → device in service → active assignment → student →
+      validate coordinates and timestamp → append history → update latest location → record last contact.
+      Any `student_id` in the body is ignored. `recorded_at` defaults to now; up to
+      LOCATION_MAX_FUTURE_SECONDS ahead (clock drift) and LOCATION_MAX_AGE_HOURS old (buffered points) are accepted.
+      Rate limited per device (DEVICE_RATE_LIMIT_PER_MINUTE).
+    security: [{ deviceToken: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [device_id, latitude, longitude]
+            properties:
+              device_id: { type: string, example: GPS000123, pattern: '^[A-Z0-9][A-Z0-9-]{2,49}$' }
+              latitude: { type: number, minimum: -90, maximum: 90, example: 11.0168 }
+              longitude: { type: number, minimum: -180, maximum: 180, example: 76.9558 }
+              accuracy: { type: number, description: metres, example: 7.4 }
+              altitude: { type: number, description: metres, example: 412.5 }
+              speed: { type: number, description: metres per second, example: 1.5 }
+              heading: { type: number, minimum: 0, maximum: 360, example: 120 }
+              battery_level: { type: number, minimum: 0, maximum: 100, example: 87 }
+              recorded_at: { type: string, format: date-time, example: '2026-09-22T06:00:00Z' }
+    responses:
+      '201':
+        description: Location stored
+        content:
+          application/json:
+            example: { success: true, device_id: GPS000123, student_id: HS-2026-1041, location_id: 1928, recorded_at: '2026-09-22T06:00:00.000Z', next_interval_seconds: 30, message: Location received }
+      '400': { description: 'Validation failed, INVALID_TIMESTAMP (future) or TIMESTAMP_TOO_OLD' }
+      '401': { description: 'DEVICE_AUTH_FAILED — missing/wrong token or unknown device (same answer for both)' }
+      '403': { description: 'DEVICE_INACTIVE — device is inactive, in maintenance or lost' }
+      '409':
+        description: 'DEVICE_NOT_ASSIGNED or TRACKING_DISABLED'
+        content:
+          application/json:
+            example: { success: false, message: Device is not assigned to a student, error: DEVICE_NOT_ASSIGNED }
+      '429': { description: 'RATE_LIMITED' }
+
+/devices/summary:
+  get:
+    tags: [GPS Devices]
+    summary: "Inventory and connectivity: total, assigned, available, online, stale, offline, out of service, low battery"
+    x-permission: "tracking.read_all or tracking.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/devices:
+  get:
+    tags: [GPS Devices]
+    summary: "Device list with assigned student, GPS status and battery"
+    description: "Sort keys: code, type, status, student, seen, battery. gpsStatus: online (< ONLINE_THRESHOLD_SECONDS), stale, offline (> OFFLINE_THRESHOLD_SECONDS), never."
+    x-permission: "tracking.read_all or tracking.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [available, assigned, inactive, maintenance, lost] } }
+      - { name: deviceType, in: query, schema: { type: string, enum: [gps_tracker, id_card_tag, wearable, mobile_app] } }
+      - { name: gpsStatus, in: query, schema: { type: string, enum: [online, stale, offline, never] } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [GPS Devices]
+    summary: "Register a device. Returns the device token ONCE; only its SHA-256 hash is stored."
+    x-permission: "tracking.manage"
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              deviceCode: { type: string, description: 'Omit to generate the next GPSnnnnnn', example: GPS000123 }
+              imei: { type: string, example: '864521000000123' }
+              serialNumber: { type: string }
+              deviceType: { type: string, enum: [gps_tracker, id_card_tag, wearable, mobile_app], default: gps_tracker }
+              firmwareVersion: { type: string }
+              campusId: { type: string, format: uuid }
+              notes: { type: string }
+    responses:
+      '201': { description: '{ device, token }' }
+      '409': { description: DEVICE_EXISTS }
+
+/devices/lookup:
+  get:
+    tags: [GPS Devices]
+    summary: "Resolve a scanned QR label or typed value (device ID, IMEI, serial, HSDEV:… or a URL ending in the ID)"
+    x-permission: "tracking.read_all or tracking.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: code, in: query, required: true, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { description: DEVICE_NOT_FOUND }
+
+/devices/{id}:
+  get:
+    tags: [GPS Devices]
+    summary: "Device detail with full assignment history (id or device code)"
+    x-permission: "tracking.read_all or tracking.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { description: DEVICE_NOT_FOUND }
+  put:
+    tags: [GPS Devices]
+    summary: "Update details or status. Marking inactive / maintenance / lost ends the active assignment."
+    x-permission: "tracking.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              imei: { type: string, nullable: true }
+              serialNumber: { type: string, nullable: true }
+              deviceType: { type: string, enum: [gps_tracker, id_card_tag, wearable, mobile_app] }
+              firmwareVersion: { type: string, nullable: true }
+              campusId: { type: string, format: uuid, nullable: true }
+              notes: { type: string, nullable: true }
+              status: { type: string, enum: [available, inactive, maintenance, lost] }
+              reason: { type: string }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '409': { description: 'DEVICE_ASSIGNED — unassign before marking available' }
+
+/devices/{id}/token:
+  post:
+    tags: [GPS Devices]
+    summary: "Issue a new device token (returned once); the old token stops working immediately"
+    x-permission: "tracking.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/devices/{id}/location/latest:
+  get:
+    tags: [GPS Devices]
+    summary: "Latest point this device sent, with the student it was recorded against"
+    x-permission: "tracking.read_all"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/device-assignments:
+  get:
+    tags: [GPS Devices]
+    summary: "Assignment history (active and ended)"
+    description: "Sort keys: assigned, unassigned, student, device."
+    x-permission: "tracking.read_all or tracking.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - { name: status, in: query, schema: { type: string, enum: [active, inactive] } }
+      - { name: studentId, in: query, description: uuid or admission number, schema: { type: string } }
+      - { name: deviceId, in: query, description: uuid or device code, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+  post:
+    tags: [GPS Devices]
+    summary: "Assign a device to a student"
+    description: |
+      One active student per device and one active device per student. If the device is with someone
+      else, or the student already has a device, the API answers 409 REASSIGN_REQUIRED (with who holds it
+      in `details`); repeat with `reassign: true` to end the old assignment(s) and create the new one.
+    x-permission: "tracking.manage"
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [studentId, deviceId]
+            properties:
+              studentId: { type: string, description: uuid or admission number, example: HS-2026-1041 }
+              deviceId: { type: string, description: uuid or device code, example: GPS000123 }
+              notes: { type: string }
+              reassign: { type: boolean, default: false }
+    responses:
+      '201': { $ref: '#/components/responses/Ok' }
+      '409': { description: 'REASSIGN_REQUIRED, ALREADY_ASSIGNED, DEVICE_NOT_AVAILABLE or STUDENT_INACTIVE' }
+
+/device-assignments/{id}/unassign:
+  post:
+    tags: [GPS Devices]
+    summary: "End an assignment: status inactive, unassigned_at set, device available. History is kept."
+    x-permission: "tracking.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    requestBody:
+      content:
+        application/json:
+          schema: { type: object, properties: { reason: { type: string } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '409': { description: ASSIGNMENT_INACTIVE }
+
+/v1/device/status:
+  get:
+    tags: [GPS Devices]
+    summary: "The device's own view (tracker app dashboard): assigned student, today's points and distance, last contact"
+    security: [{ deviceToken: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '401': { description: DEVICE_AUTH_FAILED }

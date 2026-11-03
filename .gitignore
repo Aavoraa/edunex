@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.local
+.pgdata/
+uploads/
+coverage/
+*.log
+LOGINS.txt
+
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

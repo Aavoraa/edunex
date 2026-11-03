@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Edunex mark (open book and teal spark) on the indigo adaptive-icon background,
+     as in the web app's favicon. Same geometry as frontend/public/logo-mark.svg. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:translateX="22" android:translateY="22">
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M12,27.5c6.6,-3.2 13,-3 19,0.9v21.1c-6,-3.9 -12.4,-4.1 -19,-0.9z" />
+        <path android:fillColor="#D1FFFFFF"
+            android:pathData="M52,27.5c-6.6,-3.2 -13,-3 -19,0.9v21.1c6,-3.9 12.4,-4.1 19,-0.9z" />
+        <path android:fillColor="#2DD4BF"
+            android:pathData="M32,8.5l2.1,5.4 5.4,2.1 -5.4,2.1L32,23.5l-2.1,-5.4 -5.4,-2.1 5.4,-2.1z" />
+    </group>
+</vector>

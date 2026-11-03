@@ -1,0 +1,598 @@
+# Operations — assets, facilities, maintenance, inventory, school documents,
+# certificates, compliance calendar, audit facets.
+# File upload/download/verify use the core routes: POST /documents,
+# GET /documents/{id}/download, PATCH /documents/{id}/verify. The audit list is GET /audit-logs.
+/assets:
+  get:
+    tags: [Operations]
+    summary: List the asset register (status is derived — Active assets past their service date read "Maintenance due")
+    x-permission: operations.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: category, in: query, schema: { type: string, enum: [IT, Lab, Vehicle, Facilities, Furniture, Sports, Library] } }
+      - { name: status, in: query, schema: { type: string, enum: [Active, Maintenance due, In maintenance, Retired] } }
+      - { name: serviceDue, in: query, description: Service due within N days, schema: { type: integer, minimum: 1, maximum: 365 } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Operations]
+    summary: Add an asset (code AST-nnnn is generated)
+    x-permission: operations.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [campusId, name, category]
+            properties:
+              campusId: { type: string, format: uuid }
+              name: { type: string }
+              category: { type: string }
+              location: { type: string }
+              facilityId: { type: string, format: uuid }
+              assignedTo: { type: string, format: uuid, description: Employee id }
+              purchasedOn: { type: string, format: date }
+              purchaseValue: { type: number }
+              nextServiceOn: { type: string, format: date }
+              status: { type: string, enum: [Active, Maintenance due, In maintenance] }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+/assets/summary:
+  get:
+    tags: [Operations]
+    summary: Asset KPIs (on register, service due in 30 days, in maintenance, straight-line book value)
+    x-permission: operations.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/assets/{id}:
+  put:
+    tags: [Operations]
+    summary: Update an asset (same fields as create, all optional)
+    x-permission: operations.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody: { content: { application/json: { schema: { type: object } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  delete:
+    tags: [Operations]
+    summary: Retire an asset (soft delete)
+    x-permission: operations.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+/assets/{id}/service:
+  post:
+    tags: [Operations]
+    summary: Record a service and set the next service date
+    x-permission: operations.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [servicedOn, nextServiceOn]
+            properties:
+              servicedOn: { type: string, format: date }
+              nextServiceOn: { type: string, format: date }
+              note: { type: string }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+/facilities:
+  get:
+    tags: [Operations]
+    summary: List spaces with today's bookings and weekly utilisation (booked hours Mon–Fri ÷ 40)
+    x-permission: operations.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }, { $ref: '#/components/parameters/Search' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+  post:
+    tags: [Operations]
+    summary: Add a space
+    x-permission: operations.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [campusId, name, facilityType]
+            properties:
+              campusId: { type: string, format: uuid }
+              name: { type: string }
+              facilityType: { type: string, enum: [Classroom, Lab, Hall, Field, Library, Studio, Other] }
+              capacity: { type: integer }
+              status: { type: string, enum: [Available, In use, Maintenance, Closed] }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+/facilities/{id}:
+  put:
+    tags: [Operations]
+    summary: Update a space
+    x-permission: operations.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody: { content: { application/json: { schema: { type: object } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/facilities/{id}/bookings:
+  get:
+    tags: [Operations]
+    summary: Bookings for a space (default today + 13 days)
+    x-permission: operations.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - { name: from, in: query, schema: { type: string, format: date } }
+      - { name: to, in: query, schema: { type: string, format: date } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+  post:
+    tags: [Operations]
+    summary: Book a space (409 on a clash; refused while Closed or under Maintenance)
+    x-permission: operations.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [bookedOn, startsAt, endsAt, purpose]
+            properties:
+              bookedOn: { type: string, format: date }
+              startsAt: { type: string, example: '09:00' }
+              endsAt: { type: string, example: '10:00' }
+              purpose: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '409': { description: Booking clash }
+/facility-bookings/{id}:
+  delete:
+    tags: [Operations]
+    summary: Cancel a booking (own bookings, or any with operations.manage)
+    x-permission: operations.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+/maintenance:
+  get:
+    tags: [Operations]
+    summary: List maintenance requests
+    x-permission: operations.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [open, Submitted, Under Review, Approved, In Progress, Completed, Rejected] } }
+      - { name: priority, in: query, schema: { type: string, enum: [Low, Medium, High, Urgent] } }
+      - { name: mine, in: query, schema: { type: boolean } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Operations]
+    summary: Raise a request (any staff with operations.read; code MR-nnn generated)
+    x-permission: operations.read
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [description]
+            properties:
+              campusId: { type: string, format: uuid, description: Defaults to the user's campus }
+              description: { type: string }
+              priority: { type: string, enum: [Low, Medium, High, Urgent] }
+              assetId: { type: string, format: uuid }
+              facilityId: { type: string, format: uuid }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+/maintenance/summary:
+  get:
+    tags: [Operations]
+    summary: Open, high priority, closed this month, median days to close (90 days)
+    x-permission: operations.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/maintenance/{id}/status:
+  patch:
+    tags: [Operations]
+    summary: Move a request — Submitted → Under Review → Approved → In Progress → Completed, or Rejected (cost required to complete)
+    x-permission: operations.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status]
+            properties:
+              status: { type: string, enum: [Submitted, Under Review, Approved, In Progress, Completed, Rejected] }
+              assignedTo: { type: string, format: uuid }
+              cost: { type: number }
+              note: { type: string }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+/inventory:
+  get:
+    tags: [Operations]
+    summary: List stock items with derived level (Reorder / At minimum / In stock)
+    x-permission: operations.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: category, in: query, schema: { type: string } }
+      - { name: level, in: query, schema: { type: string, enum: [low, at_minimum, ok] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Operations]
+    summary: Add a stock item (opening stock recorded as a movement)
+    x-permission: operations.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [campusId, name, category, unit, reorderLevel]
+            properties:
+              campusId: { type: string, format: uuid }
+              sku: { type: string }
+              name: { type: string }
+              category: { type: string }
+              unit: { type: string }
+              quantity: { type: integer }
+              reorderLevel: { type: integer }
+              unitCost: { type: number }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '409': { description: SKU exists }
+/inventory/summary:
+  get:
+    tags: [Operations]
+    summary: Items, below reorder, at minimum, stock value, low item names
+    x-permission: operations.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/inventory/categories:
+  get:
+    tags: [Operations]
+    summary: Distinct stock categories
+    x-permission: operations.read
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/inventory/movements:
+  get:
+    tags: [Operations]
+    summary: Stock movement ledger
+    x-permission: operations.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: itemId, in: query, schema: { type: string, format: uuid } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+/inventory/{id}:
+  put:
+    tags: [Operations]
+    summary: Update item details (quantity changes only through movements)
+    x-permission: operations.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody: { content: { application/json: { schema: { type: object } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/inventory/{id}/movements:
+  post:
+    tags: [Operations]
+    summary: Record stock in / out / adjust-to-count (adjust requires a note; out cannot exceed stock)
+    x-permission: operations.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [movementType, quantity]
+            properties:
+              movementType: { type: string, enum: [in, out, adjust] }
+              quantity: { type: integer }
+              note: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+/inventory/{id}/purchase-request:
+  post:
+    tags: [Operations]
+    summary: Send a purchase request to Finance and the Principal (notification + audit)
+    x-permission: operations.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [quantity], properties: { quantity: { type: integer }, note: { type: string } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/documents/summary:
+  get:
+    tags: [Operations]
+    summary: Document KPIs (student documents limited to the caller's scope)
+    x-permission: documents.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/documents/collections:
+  get:
+    tags: [Operations]
+    summary: School document sets (documents without a student, grouped by collection)
+    x-permission: documents.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/Search' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/documents/school:
+  get:
+    tags: [Operations]
+    summary: School documents, optionally within one collection ("Unfiled" = no collection)
+    x-permission: documents.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - { name: collection, in: query, schema: { type: string } }
+      - { name: status, in: query, schema: { type: string, enum: [Pending, Submitted, Verified, Rejected, Expired] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+/documents/pending:
+  get:
+    tags: [Operations]
+    summary: Student documents requested or awaiting verification (student scope applied)
+    x-permission: documents.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [Pending, Submitted] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+/certificates:
+  get:
+    tags: [Operations]
+    summary: Certificate requests (student scope applied)
+    x-permission: documents.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [Draft, Submitted, Under Review, Approved, Rejected, Issued] } }
+      - { name: type, in: query, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Operations]
+    summary: Request a certificate for a student (one open request per type)
+    x-permission: documents.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [certificateType, studentId]
+            properties:
+              certificateType: { type: string, enum: [Transfer certificate, Bonafide certificate, Conduct certificate, Study certificate, Achievement certificate] }
+              studentId: { type: string, description: UUID or admission number }
+              purpose: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '404': { $ref: '#/components/responses/NotFound' }
+/certificates/summary:
+  get:
+    tags: [Operations]
+    summary: Counts per workflow stage
+    x-permission: documents.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/certificates/checks/{studentId}:
+  get:
+    tags: [Operations]
+    summary: Automatic clearance checks (fees, documents, conduct); blocking flag depends on certificate type
+    x-permission: documents.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/StudentIdPath'
+      - { name: type, in: query, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+/certificates/verify/{code}:
+  get:
+    tags: [Operations]
+    summary: Verify a QR code (public-safe payload; sign-in still required in this build)
+    x-permission: any signed-in user
+    security: [{ bearerAuth: [] }]
+    parameters: [{ name: code, in: path, required: true, schema: { type: string, example: TC-2026-0341 } }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+/certificates/{id}/decision:
+  post:
+    tags: [Operations]
+    summary: review | approve (runs blocking checks, assigns the verification code) | reject (note required) | issue
+    x-permission: documents.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [action]
+            properties:
+              action: { type: string, enum: [review, approve, reject, issue] }
+              note: { type: string }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+/compliance:
+  get:
+    tags: [Operations]
+    summary: Compliance calendar. Status derived — Overdue (past due), Due Soon (≤ 14 days), Completed; open items only by default
+    x-permission: operations.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [Scheduled, In Progress, Due Soon, Overdue, Completed] } }
+      - { name: includeCompleted, in: query, schema: { type: boolean } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Operations]
+    summary: Add a requirement with an owner
+    x-permission: operations.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [campusId, item, authority, dueOn]
+            properties:
+              campusId: { type: string, format: uuid }
+              item: { type: string }
+              authority: { type: string }
+              dueOn: { type: string, format: date }
+              ownerId: { type: string, format: uuid }
+              ownerName: { type: string }
+              notes: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+/compliance/summary:
+  get:
+    tags: [Operations]
+    summary: Overdue, due soon, on schedule, on-time score (12 months) and a 6-month due vs on-time series
+    x-permission: operations.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/compliance/{id}:
+  put:
+    tags: [Operations]
+    summary: Update an open requirement (progress Scheduled / In Progress)
+    x-permission: operations.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody: { content: { application/json: { schema: { type: object } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/compliance/{id}/complete:
+  post:
+    tags: [Operations]
+    summary: Mark completed; optionally schedule the next occurrence
+    x-permission: operations.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [completedOn]
+            properties:
+              completedOn: { type: string, format: date }
+              nextDueOn: { type: string, format: date }
+              notes: { type: string }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/compliance/{id}/escalate:
+  post:
+    tags: [Operations]
+    summary: Critical notification to the Principal, School Admin and owner
+    x-permission: operations.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody: { content: { application/json: { schema: { type: object, properties: { note: { type: string } } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/audit/facets:
+  get:
+    tags: [Operations]
+    summary: Modules (with counts) and actions present in the audit trail, for filters
+    x-permission: audit.read
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }

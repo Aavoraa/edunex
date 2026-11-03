@@ -1,0 +1,562 @@
+# Finance module — fees, payments, receipts, concessions, scholarships, expenses,
+# reimbursements, allowances, budgets, reconciliation, reports, and the Parent 360
+# fee endpoints (/family/*). Staff endpoints live under /finance/*.
+# Read = finance.read, write = finance.manage, review = finance.manage; approve / reject = approvals.decide (Super Admin only).
+
+x-finance-common:
+  sec: &sec [{ bearerAuth: [] }]
+  ok: &ok { '200': { $ref: '#/components/responses/Ok' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  okId: &okId
+    '200': { $ref: '#/components/responses/Ok' }
+    '400': { $ref: '#/components/responses/BadRequest' }
+    '403': { $ref: '#/components/responses/Forbidden' }
+    '404': { $ref: '#/components/responses/NotFound' }
+    '409': { description: Invalid workflow state or duplicate }
+  paged: &paged { '200': { $ref: '#/components/responses/Paged' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  created: &created
+    '201': { $ref: '#/components/responses/Created' }
+    '400': { $ref: '#/components/responses/BadRequest' }
+    '403': { $ref: '#/components/responses/Forbidden' }
+    '409': { description: Duplicate }
+  listParams: &listParams
+    - $ref: '#/components/parameters/Page'
+    - $ref: '#/components/parameters/PageSize'
+    - $ref: '#/components/parameters/Search'
+    - $ref: '#/components/parameters/Sort'
+    - $ref: '#/components/parameters/Dir'
+    - $ref: '#/components/parameters/CampusId'
+  campus: &campus [{ $ref: '#/components/parameters/CampusId' }]
+  id: &id [{ $ref: '#/components/parameters/IdPath' }]
+  student: &student
+    - { name: studentId, in: path, required: true, description: Student UUID or admission number (HS-2026-1041), schema: { type: string } }
+  reason: &reason
+    required: true
+    content: { application/json: { schema: { type: object, required: [reason], properties: { reason: { type: string, minLength: 1, maxLength: 500 } } } } }
+  note: &note
+    required: true
+    content: { application/json: { schema: { type: object, required: [note], properties: { note: { type: string, minLength: 1, maxLength: 300 } } } } }
+  empty: &empty
+    content: { application/json: { schema: { type: object } } }
+
+/finance/lookups:
+  get: { tags: [Finance], summary: 'Fee heads, vendors, expense categories, employees', x-permission: 'finance.read | hr.read', security: *sec, responses: *ok }
+
+/finance/fees/summary:
+  get:
+    tags: [Finance]
+    summary: Fee collection dashboard (billed, collected, outstanding, overdue 30+, collection %, trend, ageing, methods, campus, heads, attention list)
+    x-permission: finance.read
+    security: *sec
+    parameters: *campus
+    responses: *ok
+
+/finance/fees/reminders/audience:
+  get: { tags: [Finance], summary: 'Account counts per reminder audience (overdue30, outstanding, due7)', x-permission: finance.read, security: *sec, parameters: *campus, responses: *ok }
+
+/finance/fees/reminders:
+  post:
+    tags: [Finance]
+    summary: Queue fee reminders to guardians (in-app + WhatsApp/SMS outbox)
+    x-permission: finance.manage
+    security: *sec
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [message]
+            properties:
+              audience: { type: string, enum: [overdue30, outstanding, due7] }
+              studentIds: { type: array, items: { type: string, format: uuid }, maxItems: 200 }
+              channel: { type: string, enum: [whatsapp_app, whatsapp, sms_app], default: whatsapp_app }
+              message: { type: string, maxLength: 600, description: '{student} and {amount} are substituted' }
+              campusId: { type: string, format: uuid }
+    responses: *okId
+
+/finance/fee-structures/summary:
+  get: { tags: [Finance], summary: Fee structures grouped by campus and stage (annual tuition / transport / activities, instalments, students), x-permission: finance.read, security: *sec, parameters: *campus, responses: *ok }
+
+/finance/fee-structures:
+  get:
+    tags: [Finance]
+    summary: List fee structure lines (current year)
+    x-permission: finance.read
+    security: *sec
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [class, head, term, amount, dueDate, status] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: classId, in: query, schema: { type: string, format: uuid } }
+      - { name: feeHeadId, in: query, schema: { type: string, format: uuid } }
+      - { name: status, in: query, schema: { type: string, enum: [Draft, Active, Archived] } }
+    responses: *paged
+  post:
+    tags: [Finance]
+    summary: Create structure lines for one or more classes (optionally raise them on student accounts now)
+    x-permission: finance.manage
+    security: *sec
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [classIds, feeHeadId, term, amount, dueDate]
+            properties:
+              classIds: { type: array, items: { type: string, format: uuid } }
+              feeHeadId: { type: string, format: uuid }
+              term: { type: string, enum: [Term 1, Term 2, Term 3, Annual] }
+              amount: { type: number, minimum: 0 }
+              dueDate: { type: string, format: date }
+              status: { type: string, enum: [Draft, Active], default: Active }
+              applyNow: { type: boolean, default: false }
+    responses: *created
+
+/finance/fee-structures/{id}:
+  patch:
+    tags: [Finance]
+    summary: Update amount (only before it is applied), due date or status
+    x-permission: finance.manage
+    security: *sec
+    parameters: *id
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, properties: { amount: { type: number }, dueDate: { type: string, format: date }, status: { type: string, enum: [Draft, Active, Archived] } } } } }
+    responses: *okId
+
+/finance/fee-structures/{id}/apply:
+  post: { tags: [Finance], summary: Raise an active structure on every enrolled student in the class who does not have it (transport only for bus users), x-permission: finance.manage, security: *sec, parameters: *id, responses: *okId }
+
+/finance/accounts:
+  get:
+    tags: [Finance]
+    summary: Student accounts with billed / paid / balance / overdue and fee status
+    x-permission: finance.read
+    security: *sec
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [name, admissionNo, grade, billed, paid, balance, overdue, feeStatus] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: classId, in: query, schema: { type: string, format: uuid } }
+      - { name: feeStatus, in: query, schema: { type: string, enum: [Paid, Pending, Partial, Overdue] } }
+    responses: *paged
+
+/finance/accounts/{studentId}:
+  get: { tags: [Finance], summary: 'Student ledger: charges, payments, concessions and summary (audited read)', x-permission: finance.read, security: *sec, parameters: *student, responses: *okId }
+
+/finance/accounts/{studentId}/payments:
+  post:
+    tags: [Finance]
+    summary: Record a counter payment (payment rule — allocates oldest dues first or the given charges, rejects overpayment, issues RCT-<year>-NNNNNN, notifies guardians)
+    x-permission: finance.manage
+    security: *sec
+    parameters: *student
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [amount, method]
+            properties:
+              amount: { type: number, exclusiveMinimum: 0 }
+              method: { type: string, enum: [UPI, Card, Net Banking, Cash, DD, Cheque] }
+              feeIds: { type: array, items: { type: string, format: uuid } }
+              reference: { type: string, maxLength: 80 }
+    responses: { '201': { description: Receipt }, '400': { description: 'OVERPAYMENT, NOTHING_DUE, INVALID_FEE_SELECTION or validation' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' } }
+
+/finance/accounts/{studentId}/charges:
+  post:
+    tags: [Finance]
+    summary: Raise an ad-hoc charge on a student account
+    x-permission: finance.manage
+    security: *sec
+    parameters: *student
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [feeHeadId, description, amount, dueDate], properties: { feeHeadId: { type: string, format: uuid }, description: { type: string }, amount: { type: number }, dueDate: { type: string, format: date } } } } }
+    responses: *created
+
+/finance/payments:
+  get:
+    tags: [Finance]
+    summary: Payment register
+    x-permission: finance.read
+    security: *sec
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [date, amount, receiptNo, method, status, student] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: method, in: query, schema: { type: string, enum: [UPI, Card, Net Banking, Cash, DD, Cheque, Cash / DD] } }
+      - { name: status, in: query, schema: { type: string, enum: [Initiated, Success, Failed, Refunded] } }
+      - { name: delivery, in: query, schema: { type: string, enum: [Delivered, Pending] } }
+      - { name: reconciled, in: query, schema: { type: boolean } }
+      - { name: from, in: query, schema: { type: string, format: date } }
+      - { name: to, in: query, schema: { type: string, format: date } }
+    responses: *paged
+
+/finance/payments/summary:
+  get: { tags: [Finance], summary: 'Collected today, transactions today, failed/pending, unreconciled, receipt delivery counts', x-permission: finance.read, security: *sec, parameters: *campus, responses: *ok }
+
+/finance/payments/export:
+  get:
+    tags: [Finance]
+    summary: Payment register as CSV (same filters as the list)
+    x-permission: finance.read
+    security: *sec
+    responses: { '200': { description: CSV file, content: { text/csv: { schema: { type: string } } } }, '403': { $ref: '#/components/responses/Forbidden' } }
+
+/finance/payments/{id}/receipt:
+  get: { tags: [Finance], summary: Receipt with allocation lines, x-permission: finance.read, security: *sec, parameters: *id, responses: *okId }
+
+/finance/payments/{id}/send-receipt:
+  post: { tags: [Finance], summary: Queue the receipt to guardians on WhatsApp and mark it delivered, x-permission: finance.manage, security: *sec, parameters: *id, requestBody: *empty, responses: *okId }
+
+/finance/concessions/summary:
+  get: { tags: [Finance], summary: 'Approved concessions by type, tuition billed, scholarship KPIs', x-permission: finance.read, security: *sec, parameters: *campus, responses: *ok }
+
+/finance/concessions:
+  get:
+    tags: [Finance]
+    summary: Concession requests and awards (current year)
+    x-permission: finance.read
+    security: *sec
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [date, student, amount, status, type] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [Draft, Submitted, Under Review, Approved, Rejected] } }
+      - { name: type, in: query, schema: { type: string, enum: [Sibling concession, Staff ward concession, Merit scholarship, Need-based support, Sports quota] } }
+      - { name: group, in: query, description: '"scholarship" = merit, need-based and sports awards', schema: { type: string, enum: [scholarship] } }
+    responses: *paged
+  post:
+    tags: [Finance]
+    summary: Request a concession (percent of annual tuition XOR fixed amount); status Submitted
+    x-permission: finance.manage
+    security: *sec
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [studentId, type, reason]
+            properties:
+              studentId: { type: string, format: uuid }
+              type: { type: string, enum: [Sibling concession, Staff ward concession, Merit scholarship, Need-based support, Sports quota] }
+              percent: { type: number, maximum: 100 }
+              amount: { type: number }
+              reason: { type: string, maxLength: 500 }
+    responses: *created
+
+/finance/concessions/{id}/review:
+  post: { tags: [Finance], summary: Submitted → Under Review, x-permission: finance.manage, security: *sec, parameters: *id, requestBody: *empty, responses: *okId }
+/finance/concessions/{id}/approve:
+  post: { tags: [Finance], summary: Approve and apply to outstanding charges (student_fees.concession_amount; tuition first, never below amounts paid), x-permission: approvals.decide, security: *sec, parameters: *id, requestBody: *empty, responses: *okId }
+/finance/concessions/{id}/reject:
+  post: { tags: [Finance], summary: Reject with a reason, x-permission: approvals.decide, security: *sec, parameters: *id, requestBody: *reason, responses: *okId }
+
+/finance/scholarships:
+  get: { tags: [Finance], summary: Scholarship rounds (schemes) for the current year, x-permission: finance.read, security: *sec, responses: *ok }
+  post:
+    tags: [Finance]
+    summary: Open a scholarship round
+    x-permission: finance.manage
+    security: *sec
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [name, amount, seats], properties: { name: { type: string }, criteria: { type: string }, amount: { type: number }, seats: { type: integer, minimum: 1 } } } } }
+    responses: *created
+/finance/scholarships/{id}:
+  patch:
+    tags: [Finance]
+    summary: Change round status
+    x-permission: finance.manage
+    security: *sec
+    parameters: *id
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [status], properties: { status: { type: string, enum: [Open, Closed, Awarded] } } } } }
+    responses: *okId
+
+/finance/expenses/summary:
+  get: { tags: [Finance], summary: Workflow counts and approved spend by category this year, x-permission: finance.read, security: *sec, parameters: *campus, responses: *ok }
+/finance/expenses:
+  get:
+    tags: [Finance]
+    summary: List expenses
+    x-permission: finance.read
+    security: *sec
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [date, amount, code, status, category] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [Draft, Submitted, Under Review, Approved, Rejected, Paid] } }
+      - { name: category, in: query, schema: { type: string } }
+      - { name: from, in: query, schema: { type: string, format: date } }
+      - { name: to, in: query, schema: { type: string, format: date } }
+    responses: *paged
+  post:
+    tags: [Finance]
+    summary: Raise an expense (EXP-NNNN); Draft or Submitted
+    x-permission: finance.manage
+    security: *sec
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [campusId, category, description, amount, expenseDate]
+            properties:
+              campusId: { type: string, format: uuid }
+              category: { type: string }
+              description: { type: string }
+              amount: { type: number }
+              expenseDate: { type: string, format: date }
+              vendorId: { type: string, format: uuid }
+              submittedBy: { type: string, format: uuid, description: Employee id; defaults to the caller's employee record }
+              submit: { type: boolean, default: true }
+    responses: *created
+/finance/expenses/{id}/submit:
+  post: { tags: [Finance], summary: Draft → Submitted, x-permission: finance.manage, security: *sec, parameters: *id, requestBody: *empty, responses: *okId }
+/finance/expenses/{id}/review:
+  post: { tags: [Finance], summary: Submitted → Under Review, x-permission: finance.manage, security: *sec, parameters: *id, requestBody: *empty, responses: *okId }
+/finance/expenses/{id}/approve:
+  post: { tags: [Finance], summary: Submitted / Under Review → Approved, x-permission: approvals.decide, security: *sec, parameters: *id, requestBody: *empty, responses: *okId }
+/finance/expenses/{id}/reject:
+  post: { tags: [Finance], summary: Submitted / Under Review → Rejected (reason required), x-permission: approvals.decide, security: *sec, parameters: *id, requestBody: *reason, responses: *okId }
+/finance/expenses/{id}/pay:
+  post: { tags: [Finance], summary: Approved → Paid, x-permission: finance.manage, security: *sec, parameters: *id, requestBody: *empty, responses: *okId }
+
+/finance/reimbursements/summary:
+  get: { tags: [Finance], summary: Pending, approved-unpaid, paid this month, rejected, x-permission: finance.read, security: *sec, parameters: *campus, responses: *ok }
+/finance/reimbursements:
+  get:
+    tags: [Finance]
+    summary: List staff reimbursement claims
+    x-permission: finance.read
+    security: *sec
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [date, amount, code, status, employee] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string } }
+      - { name: claimType, in: query, schema: { type: string } }
+    responses: *paged
+  post:
+    tags: [Finance]
+    summary: Record a claim (RMB-NNN), status Submitted
+    x-permission: finance.manage
+    security: *sec
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [employeeId, claimType, description, amount, claimDate]
+            properties:
+              employeeId: { type: string, format: uuid }
+              claimType: { type: string, enum: [Travel, Training, Supplies, Medical, Transport, Other] }
+              description: { type: string }
+              amount: { type: number }
+              claimDate: { type: string, format: date }
+    responses: *created
+/finance/reimbursements/{id}/review:
+  post: { tags: [Finance], summary: Submitted → Under Review, x-permission: finance.manage, security: *sec, parameters: *id, requestBody: *empty, responses: *okId }
+/finance/reimbursements/{id}/approve:
+  post: { tags: [Finance], summary: Approve claim, x-permission: approvals.decide, security: *sec, parameters: *id, requestBody: *empty, responses: *okId }
+/finance/reimbursements/{id}/reject:
+  post: { tags: [Finance], summary: Reject claim with a reason, x-permission: approvals.decide, security: *sec, parameters: *id, requestBody: *reason, responses: *okId }
+/finance/reimbursements/{id}/pay:
+  post:
+    tags: [Finance]
+    summary: Approved → Paid (optionally linked to a payroll run)
+    x-permission: finance.manage
+    security: *sec
+    parameters: *id
+    requestBody: { content: { application/json: { schema: { type: object, properties: { payrollRunId: { type: string, format: uuid } } } } } }
+    responses: *okId
+
+/finance/allowances/summary:
+  get: { tags: [Finance], summary: 'Allowances grouped by type (applies to, value, employees, monthly cost, status)', x-permission: 'finance.read | hr.read', security: *sec, parameters: *campus, responses: *ok }
+/finance/allowances:
+  get:
+    tags: [Finance]
+    summary: Allowance rows per employee
+    x-permission: 'finance.read | hr.read'
+    security: *sec
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: allowanceType, in: query, schema: { type: string } }
+      - { name: status, in: query, schema: { type: string, enum: [Submitted, Approved, Rejected, Stopped] } }
+    responses: *paged
+  post:
+    tags: [Finance]
+    summary: Propose an allowance for employees (by ids, category or staff type); status Submitted
+    x-permission: 'finance.manage | hr.manage'
+    security: *sec
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [allowanceType, effectiveMonth]
+            properties:
+              allowanceType: { type: string }
+              employeeIds: { type: array, items: { type: string, format: uuid } }
+              category: { type: string }
+              employeeType: { type: string, enum: [teaching, non_teaching, all] }
+              amount: { type: number, description: Fixed monthly amount (XOR percentOfBasic) }
+              percentOfBasic: { type: number, maximum: 100 }
+              frequency: { type: string, enum: [Monthly, One-time], default: Monthly }
+              effectiveMonth: { type: string, format: date }
+              campusId: { type: string, format: uuid }
+    responses: *created
+/finance/allowances/decide:
+  post:
+    tags: [Finance]
+    summary: Approve / reject pending, or stop approved, allowances of one type
+    x-permission: 'finance.manage | hr.manage (+ approvals.decide to approve or reject)'
+    security: *sec
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [allowanceType, decision], properties: { allowanceType: { type: string }, decision: { type: string, enum: [Approved, Rejected, Stopped] }, campusId: { type: string, format: uuid } } } } }
+    responses: *okId
+
+/finance/budgets:
+  get: { tags: [Finance], summary: 'Budget vs actual (approved/paid expenses) by category, committed, projection, KPIs', x-permission: finance.read, security: *sec, parameters: *campus, responses: *ok }
+  post:
+    tags: [Finance]
+    summary: Create or replace a campus budget line for the current year
+    x-permission: finance.manage
+    security: *sec
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [campusId, category, allocated], properties: { campusId: { type: string, format: uuid }, category: { type: string }, allocated: { type: number }, owner: { type: string } } } } }
+    responses: *okId
+/finance/budgets/{id}:
+  patch:
+    tags: [Finance]
+    summary: Update allocation or owner
+    x-permission: finance.manage
+    security: *sec
+    parameters: *id
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, properties: { allocated: { type: number }, owner: { type: string } } } } }
+    responses: *okId
+
+/finance/reconciliation/summary:
+  get: { tags: [Finance], summary: 'Latest statement matches, exceptions, settlement received, in transit', x-permission: finance.read, security: *sec, responses: *ok }
+/finance/reconciliation/lines:
+  get:
+    tags: [Finance]
+    summary: Bank / gateway statement lines
+    x-permission: finance.read
+    security: *sec
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [date, amount, status, reference] } }
+      - $ref: '#/components/parameters/Dir'
+      - { name: status, in: query, schema: { type: string, enum: [Matched, Unmatched, Exception, Resolved] } }
+      - { name: from, in: query, schema: { type: string, format: date } }
+      - { name: to, in: query, schema: { type: string, format: date } }
+    responses: *paged
+/finance/reconciliation/lines/{id}/candidates:
+  get: { tags: [Finance], summary: Unreconciled payments that could match a line (same reference or similar amount), x-permission: finance.read, security: *sec, parameters: *id, responses: *okId }
+/finance/reconciliation/run:
+  post: { tags: [Finance], summary: Auto-match unmatched lines on reference and amount; others become exceptions, x-permission: finance.manage, security: *sec, requestBody: *empty, responses: *ok }
+/finance/reconciliation/lines/{id}/match:
+  post:
+    tags: [Finance]
+    summary: Match a line to a payment manually (marks the payment reconciled)
+    x-permission: finance.manage
+    security: *sec
+    parameters: *id
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [paymentId], properties: { paymentId: { type: string, format: uuid }, note: { type: string } } } } }
+    responses: *okId
+/finance/reconciliation/lines/{id}/exception:
+  post: { tags: [Finance], summary: Flag a line as an exception (un-reconciles any matched payment), x-permission: finance.manage, security: *sec, parameters: *id, requestBody: *note, responses: *okId }
+/finance/reconciliation/lines/{id}/resolve:
+  post: { tags: [Finance], summary: Resolve an exception with a note, x-permission: finance.manage, security: *sec, parameters: *id, requestBody: *note, responses: *okId }
+
+/finance/reports/{key}:
+  get:
+    tags: [Finance]
+    summary: Standard financial report as columns + rows (audited)
+    x-permission: finance.read
+    security: *sec
+    parameters:
+      - { name: key, in: path, required: true, schema: { type: string, enum: [fee-collection, ageing, cash-flow, concessions, expense-budget, payroll-cost, reconciliation, campus-comparison, audit-pack] } }
+      - $ref: '#/components/parameters/CampusId'
+    responses: *okId
+
+# ---- Parent 360 (own children only; other children return 404) -------------------
+/family/children/{studentId}/fees:
+  get:
+    tags: [Finance, Parents]
+    summary: 'Fees of one of my children: summary {billed, paid, outstanding, nextDue}, lines, payments'
+    x-permission: fees.pay_own
+    security: *sec
+    parameters: *student
+    responses: *okId
+/family/children/{studentId}/fees/pay:
+  post:
+    tags: [Finance, Parents]
+    summary: Pay online (SIMULATED gateway — no real charge; gateway_ref SIM-…). Returns the receipt.
+    x-permission: fees.pay_own
+    security: *sec
+    parameters: *student
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [amount, method]
+            properties:
+              amount: { type: number, exclusiveMinimum: 0 }
+              method: { type: string, enum: [UPI, Card, Net Banking] }
+              feeIds: { type: array, items: { type: string, format: uuid } }
+    responses:
+      '201': { description: 'Receipt: { id, receiptNo, amount, method, paidAt, gatewayRef, status, lines[], student, simulated: true }' }
+      '400': { description: OVERPAYMENT, NOTHING_DUE, INVALID_FEE_SELECTION or validation }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+/family/receipts/{paymentId}:
+  get:
+    tags: [Finance, Parents]
+    summary: A receipt for one of my children
+    x-permission: fees.pay_own
+    security: *sec
+    parameters: [{ name: paymentId, in: path, required: true, schema: { type: string, format: uuid } }]
+    responses: *okId

@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.Edunex" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#1E1B4B</item>
+        <item name="android:windowBackground">@color/bg</item>
+    </style>
+    <color name="bg">#F6F7FB</color>
+    <color name="brand">#3B3FD9</color>
+    <color name="icon_bg">#3B3FD9</color>
+</resources>

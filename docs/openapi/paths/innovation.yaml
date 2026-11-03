@@ -1,0 +1,483 @@
+# Student Innovation Lab. Teachers (students.read_assigned) only see ideas/projects of
+# students in their scope, or projects they mentor; out-of-scope records return 404.
+/innovation/dashboard:
+  get:
+    tags: [Innovation]
+    summary: Lab KPIs, stage pipeline, recent projects, competitions and skills radar (all computed)
+    x-permission: innovation.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+/innovation/ideas:
+  get:
+    tags: [Innovation]
+    summary: List ideas
+    x-permission: innovation.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [open, Submitted, Under Review, Accepted, Declined, Converted] } }
+      - { name: category, in: query, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Innovation]
+    summary: Submit an idea on behalf of a student in scope
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, problem, studentId, category]
+            properties:
+              title: { type: string }
+              problem: { type: string }
+              studentId: { type: string, description: UUID or admission number }
+              category: { type: string }
+              wantsMentor: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/me/ideas:
+  get:
+    tags: [Innovation]
+    summary: The signed-in student's own ideas
+    description: >
+      Student portal. Self-scoped — the student is resolved from the access token, so
+      the response only ever contains the caller's own ideas, with the review outcome
+      and the project the idea became, if any.
+    x-permission: student_portal.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Innovation]
+    summary: A student submits their own idea
+    description: >
+      Student portal. There is deliberately no studentId in the body — the idea is
+      always filed against the student linked to the access token, so a student
+      cannot submit in another student's name. Returns 403 when the signed-in account
+      has no student record linked to it.
+    x-permission: student_portal.use
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, problem, category]
+            properties:
+              title: { type: string, minLength: 4, maxLength: 160 }
+              problem: { type: string, minLength: 10, maxLength: 1000 }
+              category: { type: string }
+              wantsMentor: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+/innovation/ideas/summary:
+  get:
+    tags: [Innovation]
+    summary: Idea counts per status (incl. waiting > 7 days)
+    x-permission: innovation.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/innovation/ideas/{id}/review:
+  post:
+    tags: [Innovation]
+    summary: start (→ Under Review) | accept | decline (note required); family notified
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [action], properties: { action: { type: string, enum: [start, accept, decline] }, note: { type: string } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+/innovation/ideas/{id}/convert:
+  post:
+    tags: [Innovation]
+    summary: Convert an accepted idea into a project (stage Mentor, code IP-nnn)
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [mentorId]
+            properties:
+              mentorId: { type: string, format: uuid }
+              title: { type: string }
+              summary: { type: string }
+              milestones: { type: array, items: { type: object, properties: { title: { type: string }, dueOn: { type: string, format: date } } } }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+/innovation/projects:
+  get:
+    tags: [Innovation]
+    summary: List projects with milestone progress
+    x-permission: innovation.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: stage, in: query, schema: { type: integer, minimum: 0, maximum: 6 } }
+      - { name: mentorId, in: query, schema: { type: string, format: uuid } }
+      - { name: studentId, in: query, schema: { type: string, format: uuid } }
+      - { name: active, in: query, schema: { type: boolean } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Innovation]
+    summary: Create a project directly
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, leadStudentId, mentorId]
+            properties:
+              title: { type: string }
+              summary: { type: string }
+              leadStudentId: { type: string }
+              mentorId: { type: string, format: uuid }
+              stage: { type: integer, minimum: 1, maximum: 5, default: 3 }
+              memberIds: { type: array, items: { type: string } }
+              milestones: { type: array, items: { type: object } }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+/innovation/projects/{id}:
+  get:
+    tags: [Innovation]
+    summary: Project page — members, milestones, evidence, feedback, competitions, achievements
+    x-permission: innovation.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  patch:
+    tags: [Innovation]
+    summary: Update title, summary or mentor
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody: { content: { application/json: { schema: { type: object, properties: { title: { type: string }, summary: { type: string }, mentorId: { type: string, format: uuid } } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/innovation/projects/{id}/advance:
+  post:
+    tags: [Innovation]
+    summary: Move to the next stage. Reaching Achievement requires achievementTitle and records a verified achievement for the lead student
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              achievementTitle: { type: string }
+              level: { type: string, enum: [School, District, State, National, International] }
+              achievedOn: { type: string, format: date }
+              note: { type: string }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+/innovation/projects/{id}/members:
+  post:
+    tags: [Innovation]
+    summary: Add a team member
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [studentId], properties: { studentId: { type: string }, role: { type: string } } } } }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '409': { description: Already a member }
+/innovation/projects/{id}/members/{studentId}:
+  delete:
+    tags: [Innovation]
+    summary: Remove a member (not the lead)
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - { name: studentId, in: path, required: true, schema: { type: string, format: uuid } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/innovation/projects/{id}/milestones:
+  post:
+    tags: [Innovation]
+    summary: Add a milestone
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [title], properties: { title: { type: string }, dueOn: { type: string, format: date } } } } }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+/innovation/projects/{id}/evidence:
+  post:
+    tags: [Innovation]
+    summary: Add evidence (title, kind, optional http(s) link, milestone)
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, kind]
+            properties:
+              title: { type: string }
+              kind: { type: string, enum: [Photo, Video, Document, Test log, Link, Judging sheet] }
+              link: { type: string, format: uri }
+              note: { type: string }
+              milestoneId: { type: string, format: uuid }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+/innovation/evidence/{id}:
+  delete:
+    tags: [Innovation]
+    summary: Remove evidence
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/innovation/projects/{id}/feedback:
+  post:
+    tags: [Innovation]
+    summary: Add mentor feedback (author is the signed-in employee)
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [body], properties: { body: { type: string } } } } }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+/innovation/milestones:
+  get:
+    tags: [Innovation]
+    summary: Milestones across the lab with derived status (Completed, Overdue, In Progress, Pending)
+    x-permission: innovation.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [Completed, Overdue, In Progress, Pending, due_week, open] } }
+      - { name: projectId, in: query, schema: { type: string, format: uuid } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+/innovation/milestones/summary:
+  get:
+    tags: [Innovation]
+    summary: Milestones this year, completed, due this week, overdue
+    x-permission: innovation.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/innovation/milestones/{id}:
+  patch:
+    tags: [Innovation]
+    summary: Update or complete / reopen a milestone
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              title: { type: string }
+              dueOn: { type: string, format: date }
+              completed: { type: boolean }
+              completedOn: { type: string, format: date }
+              evidence: { type: string }
+              feedback: { type: string }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+  delete:
+    tags: [Innovation]
+    summary: Delete an incomplete milestone
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+/innovation/mentors:
+  get:
+    tags: [Innovation]
+    summary: Mentor panel (teachers.is_mentor or mentoring a project) with current load
+    x-permission: innovation.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+      - $ref: '#/components/parameters/Search'
+      - { name: all, in: query, description: Include every teacher, schema: { type: boolean } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/innovation/mentors/{id}:
+  patch:
+    tags: [Innovation]
+    summary: Add or remove a teacher (employee id) from the mentor panel
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [isMentor], properties: { isMentor: { type: boolean } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/innovation/competitions:
+  get:
+    tags: [Innovation]
+    summary: Competitions with team count and (scoped) entries
+    x-permission: innovation.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: when, in: query, schema: { type: string, enum: [upcoming, past] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Innovation]
+    summary: Register for a competition
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, level, heldOn]
+            properties:
+              name: { type: string }
+              level: { type: string, enum: [School, District, State, National, International] }
+              heldOn: { type: string, format: date }
+              result: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+/innovation/competitions/{id}:
+  put:
+    tags: [Innovation]
+    summary: Update a competition
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody: { content: { application/json: { schema: { type: object } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/innovation/competitions/{id}/entries:
+  post:
+    tags: [Innovation]
+    summary: Enter a project (stage ≥ Project; moves it to the Competition stage)
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [projectId], properties: { projectId: { type: string, format: uuid }, result: { type: string } } } } }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '409': { description: Already entered }
+/innovation/competitions/{id}/entries/{projectId}:
+  patch:
+    tags: [Innovation]
+    summary: Record an entry result
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [result], properties: { result: { type: string } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+  delete:
+    tags: [Innovation]
+    summary: Withdraw an entry
+    x-permission: innovation.manage
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - { name: projectId, in: path, required: true, schema: { type: string, format: uuid } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/innovation/achievements:
+  get:
+    tags: [Innovation]
+    summary: Verified achievements of lab participants (linked project where recorded by the lab)
+    x-permission: innovation.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: type, in: query, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+/innovation/achievements/summary:
+  get:
+    tags: [Innovation]
+    summary: Achievement counts (this year, last year, by type)
+    x-permission: innovation.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/innovation/achievement-types:
+  get:
+    tags: [Innovation]
+    summary: Distinct achievement types (filter options)
+    x-permission: innovation.read
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }

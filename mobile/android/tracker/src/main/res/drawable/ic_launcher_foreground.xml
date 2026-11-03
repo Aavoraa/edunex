@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- White location pin with a teal centre on the Edunex indigo adaptive-icon background -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M54,28 C43,28 35,36 35,47 C35,61 54,80 54,80 C54,80 73,61 73,47 C73,36 65,28 54,28 Z" />
+    <path android:fillColor="#2DD4BF"
+        android:pathData="M54,39 A8,8 0 1,1 53.99,39 Z" />
+</vector>

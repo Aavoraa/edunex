@@ -1,0 +1,991 @@
+# Workforce & payroll — HR screens (/workforce), payroll (/payroll, /payslips)
+# and staff self-service (/me). Self-service endpoints always act on the
+# signed-in user's employee record; they return 404 EMPLOYEE_NOT_LINKED when
+# the account has no employee record.
+
+/workforce/summary:
+  get:
+    tags: [Workforce]
+    summary: Workforce 360 dashboard (headcount, today's attendance, overtime, pending payroll inputs, composition)
+    x-permission: hr.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+      - { name: employeeType, in: query, schema: { type: string, enum: [teaching, non_teaching] } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/departments:
+  get:
+    tags: [Workforce]
+    summary: Departments with active employees
+    x-permission: hr.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/employees:
+  get:
+    tags: [Workforce]
+    summary: Employee directory (today's status, leave balance, overtime this month)
+    x-permission: hr.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { $ref: '#/components/parameters/Sort', description: 'name | code | category | department | shift | today | leaveBalance | overtime | workload | cpd | campus' }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: employeeType, in: query, schema: { type: string, enum: [teaching, non_teaching] } }
+      - { name: department, in: query, schema: { type: string } }
+      - { name: category, in: query, schema: { type: string } }
+      - { name: today, in: query, schema: { type: string, enum: [Present, Absent, Late, On Leave, Half Day, Not marked] } }
+      - { name: employmentStatus, in: query, schema: { type: string, enum: [active, on_notice, exited] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Workforce]
+    summary: Create an employee (adds leave entitlement and the onboarding document checklist)
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [fullName, campusId, department, designation, employeeType, category, basicSalary]
+            properties:
+              fullName: { type: string }
+              gender: { type: string, enum: [M, F, O] }
+              dateOfBirth: { type: string, format: date }
+              phone: { type: string }
+              email: { type: string, format: email }
+              campusId: { type: string, format: uuid }
+              department: { type: string }
+              designation: { type: string }
+              employeeType: { type: string, enum: [teaching, non_teaching] }
+              category: { type: string, enum: [Leadership, Teachers, Reception & Admin, Security, Drivers & Attendants, Housekeeping, Lab Staff, Library Staff] }
+              shiftName: { type: string, description: Name of an existing shift }
+              joinDate: { type: string, format: date }
+              employmentStatus: { type: string, enum: [active, on_notice, exited] }
+              basicSalary: { type: number }
+              bankAccountMasked: { type: string, example: XXXXXX4417 }
+              workloadPeriods: { type: integer }
+              backgroundVerified: { type: boolean }
+              qualification: { type: string }
+              specialisation: { type: string }
+              maxPeriodsWeek: { type: integer }
+              licenceNoMasked: { type: string }
+              licenceExpiry: { type: string, format: date }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/employees/{id}:
+  parameters: [{ $ref: '#/components/parameters/IdPath' }]
+  get:
+    tags: [Workforce]
+    summary: Employee profile with the full journey (attendance, leave, overtime, allowances, CPD, documents, roster, payslips*)
+    description: Salary, bank account and payslips are included only for callers with payroll.read.
+    x-permission: hr.read
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  put:
+    tags: [Workforce]
+    summary: Update an employee (partial; same fields as create)
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  delete:
+    tags: [Workforce]
+    summary: Archive an employee (soft delete; marks exited and clears future roster lines)
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/workforce/attendance:
+  get:
+    tags: [Workforce]
+    summary: Staff attendance register for a day (with roster post and cover status)
+    x-permission: hr.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { $ref: '#/components/parameters/Sort', description: 'name | shift | department | status | checkIn' }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: date, in: query, schema: { type: string, format: date }, description: Defaults to today }
+      - { name: status, in: query, schema: { type: string, enum: [Present, Absent, Late, On Leave, Half Day, Not marked] } }
+      - { name: employeeType, in: query, schema: { type: string, enum: [teaching, non_teaching] } }
+      - { name: department, in: query, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  put:
+    tags: [Workforce]
+    summary: Mark or correct one employee's attendance (source becomes manual)
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [employeeId, date, status]
+            properties:
+              employeeId: { type: string, format: uuid }
+              date: { type: string, format: date, description: Not in the future }
+              status: { type: string, enum: [Present, Absent, Late, On Leave, Half Day] }
+              checkIn: { type: string, example: '08:05', description: Required for Present, Late and Half Day }
+              checkOut: { type: string, example: '16:10' }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/attendance/summary:
+  get:
+    tags: [Workforce]
+    summary: Day counts, today by shift, 30-day attendance by department, daily and monthly trend
+    x-permission: hr.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+      - { name: date, in: query, schema: { type: string, format: date } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/shifts:
+  get:
+    tags: [Workforce]
+    summary: Shifts with assigned and rostered-today counts
+    x-permission: hr.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Workforce]
+    summary: Create a shift
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, startsAt, endsAt]
+            properties:
+              name: { type: string }
+              startsAt: { type: string, example: '06:00' }
+              endsAt: { type: string, example: '10:00' }
+              splitStartsAt: { type: string, example: '14:00' }
+              splitEndsAt: { type: string, example: '18:00' }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '409': { description: A shift with this name exists }
+
+/workforce/shifts/{id}:
+  put:
+    tags: [Workforce]
+    summary: Update a shift (renaming also updates employees on it)
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/workforce/roster:
+  get:
+    tags: [Workforce]
+    summary: Week roster (Mon–Sat) with gaps (Cover needed) and rostered staff who are absent
+    x-permission: hr.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+      - { name: weekStart, in: query, schema: { type: string, format: date }, description: Any date in the week; defaults to this week }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Workforce]
+    summary: Add or replace an employee's roster line for a date
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [employeeId, shiftId, date, post]
+            properties:
+              employeeId: { type: string, format: uuid }
+              shiftId: { type: string, format: uuid }
+              date: { type: string, format: date }
+              post: { type: string, example: 'Gate security — day · Rear Gate', description: 'Group · duty' }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/roster/publish:
+  post:
+    tags: [Workforce]
+    summary: Publish a week's roster to rostered staff with app accounts
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, required: [weekStart], properties: { weekStart: { type: string, format: date }, campusId: { type: string, format: uuid } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/roster/{id}:
+  delete:
+    tags: [Workforce]
+    summary: Remove a roster line
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/workforce/roster/{id}/flag-cover:
+  post:
+    tags: [Workforce]
+    summary: Flag a roster line as "Cover needed" (notifies HR)
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody: { content: { application/json: { schema: { type: object, properties: { reason: { type: string } } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/workforce/roster/{id}/assign-cover:
+  post:
+    tags: [Workforce]
+    summary: Assign a colleague to cover a roster line (colleague must not be absent or on leave; notified)
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [coverEmployeeId], properties: { coverEmployeeId: { type: string, format: uuid } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/workforce/leave-types:
+  get:
+    tags: [Workforce]
+    summary: Leave types and annual quotas
+    x-permission: hr.read | selfservice.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/leave-requests:
+  get:
+    tags: [Workforce]
+    summary: Leave requests
+    x-permission: hr.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { $ref: '#/components/parameters/Sort', description: 'code | name | from | to | days | status | created (default newest code first)' }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [open, Draft, Submitted, Under Review, Approved, Rejected, Cancelled] } }
+      - { name: employeeType, in: query, schema: { type: string, enum: [teaching, non_teaching] } }
+      - { name: leaveTypeId, in: query, schema: { type: string, format: uuid } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Workforce]
+    summary: Record a leave request for an employee (balance and overlap checked)
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [employeeId, leaveTypeId, fromDate, toDate, reason]
+            properties:
+              employeeId: { type: string, format: uuid }
+              leaveTypeId: { type: string, format: uuid }
+              fromDate: { type: string, format: date }
+              toDate: { type: string, format: date }
+              halfDay: { type: boolean }
+              reason: { type: string }
+              coverArrangement: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '409': { description: Dates overlap an existing request (LEAVE_OVERLAP) }
+
+/workforce/leave-requests/summary:
+  get:
+    tags: [Workforce]
+    summary: Leave workflow counts, leave taken by month (6 months) and type mix this year
+    x-permission: hr.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/leave-requests/{id}:
+  patch:
+    tags: [Workforce]
+    summary: Set the cover arrangement
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { coverArrangement: { type: string, nullable: true } } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/workforce/leave-requests/{id}/review:
+  post:
+    tags: [Workforce]
+    summary: Move a submitted request to Under Review
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/leave-requests/{id}/approve:
+  post:
+    tags: [Workforce]
+    summary: Approve leave — increments leave_balances.used, marks staff_attendance On Leave for the dates, flags roster lines for cover and notifies the employee
+    description: Approvers cannot decide their own requests (403 SELF_APPROVAL).
+    x-permission: approvals.decide
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody: { content: { application/json: { schema: { type: object, properties: { note: { type: string } } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/workforce/leave-requests/{id}/reject:
+  post:
+    tags: [Workforce]
+    summary: Reject leave with a reason (notifies the employee)
+    x-permission: approvals.decide
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody: { required: true, content: { application/json: { schema: { type: object, required: [note], properties: { note: { type: string } } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/overtime:
+  get:
+    tags: [Workforce]
+    summary: Overtime entries
+    x-permission: hr.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { $ref: '#/components/parameters/Sort', description: 'name | department | date | hours | cost | status' }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [open, Submitted, Under Review, Approved, Rejected, Paid] } }
+      - { name: month, in: query, schema: { type: string, example: 2026-09 } }
+      - { name: department, in: query, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Workforce]
+    summary: Submit an overtime claim for an employee (rate defaults to 2 × hourly basic)
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [employeeId, workDate, hours, reason]
+            properties:
+              employeeId: { type: string, format: uuid }
+              workDate: { type: string, format: date, description: Today or up to 60 days back }
+              hours: { type: number, multipleOf: 0.5, maximum: 24 }
+              reason: { type: string }
+              ratePerHour: { type: number }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/overtime/summary:
+  get:
+    tags: [Workforce]
+    summary: Overtime this month (hours, approved, pending, cost), by department and 6-month trend
+    x-permission: hr.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/overtime/{id}/review:
+  post:
+    tags: [Workforce]
+    summary: Move an overtime claim to Under Review
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/overtime/{id}/approve:
+  post:
+    tags: [Workforce]
+    summary: Approve an overtime claim (paid in the next payroll run)
+    x-permission: approvals.decide
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody: { content: { application/json: { schema: { type: object, properties: { note: { type: string } } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/overtime/{id}/reject:
+  post:
+    tags: [Workforce]
+    summary: Reject an overtime claim with a reason
+    x-permission: approvals.decide
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody: { required: true, content: { application/json: { schema: { type: object, required: [note], properties: { note: { type: string } } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/workload:
+  get:
+    tags: [Workforce]
+    summary: Teaching periods per week (max of timetable, assignments and recorded load) against each teacher's maximum, with rebalancing suggestions
+    x-permission: hr.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/cpd:
+  get:
+    tags: [Workforce]
+    summary: CPD hours by employee against target (24 h teaching, 12 h non-teaching) and mandatory training status
+    x-permission: hr.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { $ref: '#/components/parameters/Sort', description: 'name | department | hours | progress | mandatory' }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: employeeType, in: query, schema: { type: string, enum: [teaching, non_teaching] } }
+      - { name: department, in: query, schema: { type: string } }
+      - { name: band, in: query, schema: { type: string, enum: [met, near, below] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Workforce]
+    summary: Log completed training or schedule training for one or more employees
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [employeeIds, programme, hours, status]
+            properties:
+              employeeIds: { type: array, items: { type: string, format: uuid } }
+              programme: { type: string }
+              provider: { type: string }
+              hours: { type: integer }
+              status: { type: string, enum: [Planned, In Progress, Completed] }
+              completedOn: { type: string, format: date, description: Required when Completed }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/cpd/summary:
+  get:
+    tags: [Workforce]
+    summary: CPD KPIs and upcoming / in-progress programmes
+    x-permission: hr.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/cpd/records:
+  get:
+    tags: [Workforce]
+    summary: CPD records (optionally for one employee)
+    x-permission: hr.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: employeeId, in: query, schema: { type: string, format: uuid } }
+      - { name: status, in: query, schema: { type: string, enum: [Planned, In Progress, Completed] } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/workforce/cpd/{id}:
+  patch:
+    tags: [Workforce]
+    summary: Change a CPD record's status (keeps employees.cpd_hours in step)
+    x-permission: hr.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [status], properties: { status: { type: string, enum: [Planned, In Progress, Completed] }, completedOn: { type: string, format: date } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+# ---------------------------------------------------------------------------
+# Payroll — Draft → Inputs → Calculated → Under Review → Approved → Released → Paid
+# ---------------------------------------------------------------------------
+/payroll/runs:
+  get:
+    tags: [Workforce]
+    summary: Payroll runs (newest month first)
+    x-permission: payroll.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { $ref: '#/components/parameters/Sort', description: 'month | campus | net | status' }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [Draft, Inputs, Calculated, Under Review, Approved, Released, Paid] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Workforce]
+    summary: Open a payroll run (Draft) for a campus and month (up to one month ahead)
+    x-permission: payroll.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [campusId, payMonth], properties: { campusId: { type: string, format: uuid }, payMonth: { type: string, example: 2026-10 } } } } }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '409': { description: A run already exists for this campus and month }
+
+/payroll/runs/{id}:
+  get:
+    tags: [Workforce]
+    summary: Run detail — totals, stage, preview by category, inputs (attendance, leave, overtime, allowances, reimbursements), pending items and the caller's allowed actions
+    x-permission: payroll.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/payroll/runs/{id}/inputs:
+  post:
+    tags: [Workforce]
+    summary: Draft → Inputs
+    x-permission: payroll.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/payroll/runs/{id}/calculate:
+  post:
+    tags: [Workforce]
+    summary: Calculate payslips for every active employee of the campus (Draft/Inputs/Calculated → Calculated)
+    description: >
+      Earnings = basic + approved allowances + approved overtime (hours × rate) + approved reimbursements.
+      Deductions = PF 12% of basic + professional tax ₹200 + TDS (slab-lite on basic + allowances) + loan 0.
+      Records the calculating user for the maker-checker rule.
+    x-permission: payroll.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/payroll/runs/{id}/submit:
+  post:
+    tags: [Workforce]
+    summary: Calculated → Under Review (notifies approvers)
+    x-permission: payroll.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/payroll/runs/{id}/approve:
+  post:
+    tags: [Workforce]
+    summary: Under Review → Approved. Maker-checker — the approver must differ from the user who calculated the run (403 MAKER_CHECKER)
+    x-permission: approvals.decide
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/payroll/runs/{id}/return:
+  post:
+    tags: [Workforce]
+    summary: Under Review / Approved → Inputs with a reason (notifies the preparer)
+    x-permission: approvals.decide
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody: { required: true, content: { application/json: { schema: { type: object, required: [note], properties: { note: { type: string } } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/payroll/runs/{id}/release:
+  post:
+    tags: [Workforce]
+    summary: Approved → Released — payslips become visible in self-service; employees with accounts are notified
+    x-permission: payroll.manage | approvals.decide
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/payroll/runs/{id}/pay:
+  post:
+    tags: [Workforce]
+    summary: Released → Paid — settles the run's overtime and reimbursements
+    x-permission: payroll.manage | approvals.decide
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/payslips:
+  get:
+    tags: [Workforce]
+    summary: Payslips (with the employee's previous-month status)
+    x-permission: payroll.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { $ref: '#/components/parameters/Sort', description: 'name | code | category | gross | net | month | status' }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: runId, in: query, schema: { type: string, format: uuid } }
+      - { name: employeeType, in: query, schema: { type: string, enum: [teaching, non_teaching] } }
+      - { name: status, in: query, schema: { type: string, enum: [Draft, Released] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/payslips/summary:
+  get:
+    tags: [Workforce]
+    summary: Released counts and the list of runs for the payslip selector
+    x-permission: payroll.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/payslips/{id}:
+  get:
+    tags: [Workforce]
+    summary: One payslip with earnings, deductions, days worked, leave, overtime and payment details (read is audited)
+    x-permission: payroll.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+# ---------------------------------------------------------------------------
+# Staff self-service (own record only)
+# ---------------------------------------------------------------------------
+/me/employee:
+  get:
+    tags: [Workforce]
+    summary: My employee record, shift, today's roster line and check-in, leave balance, overtime this month and last released payslip
+    x-permission: selfservice.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { description: EMPLOYEE_NOT_LINKED — the account has no employee record }
+
+/me/attendance:
+  get:
+    tags: [Workforce]
+    summary: My attendance history (default last 30 days)
+    x-permission: selfservice.use
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: from, in: query, schema: { type: string, format: date } }
+      - { name: to, in: query, schema: { type: string, format: date } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { description: EMPLOYEE_NOT_LINKED }
+
+/me/attendance/check-in:
+  post:
+    tags: [Workforce]
+    summary: Check in for today from the staff app (Late when more than 15 minutes after shift start)
+    x-permission: selfservice.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { description: EMPLOYEE_NOT_LINKED or ON_LEAVE }
+
+/me/attendance/check-out:
+  post:
+    tags: [Workforce]
+    summary: Check out for today
+    x-permission: selfservice.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { description: EMPLOYEE_NOT_LINKED or NOT_CHECKED_IN }
+
+/me/roster:
+  get:
+    tags: [Workforce]
+    summary: My roster for a week (Mon–Sat), including cover duties and approved leave
+    x-permission: selfservice.use
+    security: [{ bearerAuth: [] }]
+    parameters: [{ name: weekStart, in: query, schema: { type: string, format: date } }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { description: EMPLOYEE_NOT_LINKED }
+
+/me/leave-balances:
+  get:
+    tags: [Workforce]
+    summary: My leave balances for the current year
+    x-permission: selfservice.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { description: EMPLOYEE_NOT_LINKED }
+
+/me/leave-requests:
+  get:
+    tags: [Workforce]
+    summary: My leave requests
+    x-permission: selfservice.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { description: EMPLOYEE_NOT_LINKED }
+  post:
+    tags: [Workforce]
+    summary: Apply for leave (Submitted; HR is notified)
+    x-permission: selfservice.use
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [leaveTypeId, fromDate, toDate, reason]
+            properties:
+              leaveTypeId: { type: string, format: uuid }
+              fromDate: { type: string, format: date }
+              toDate: { type: string, format: date }
+              halfDay: { type: boolean }
+              reason: { type: string }
+              coverArrangement: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { description: EMPLOYEE_NOT_LINKED }
+      '409': { description: LEAVE_OVERLAP }
+
+/me/leave-requests/{id}/cancel:
+  post:
+    tags: [Workforce]
+    summary: Withdraw my submitted / under-review leave request
+    x-permission: selfservice.use
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/me/overtime:
+  get:
+    tags: [Workforce]
+    summary: My overtime claims
+    x-permission: selfservice.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { description: EMPLOYEE_NOT_LINKED }
+  post:
+    tags: [Workforce]
+    summary: Submit an overtime claim
+    x-permission: selfservice.use
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [workDate, hours, reason]
+            properties:
+              workDate: { type: string, format: date }
+              hours: { type: number, multipleOf: 0.5 }
+              reason: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '404': { description: EMPLOYEE_NOT_LINKED }
+
+/me/payslips:
+  get:
+    tags: [Workforce]
+    summary: My released payslips
+    x-permission: selfservice.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { description: EMPLOYEE_NOT_LINKED }
+
+/me/payslips/{id}:
+  get:
+    tags: [Workforce]
+    summary: One of my released payslips (404 for anyone else's or an unreleased slip)
+    x-permission: selfservice.use
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/me/tasks:
+  get:
+    tags: [Workforce]
+    summary: My open tasks
+    x-permission: selfservice.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { description: EMPLOYEE_NOT_LINKED }
+
+/me/requests:
+  get:
+    tags: [Workforce]
+    summary: My recent requests (leave, overtime, one-time allowances, reimbursements)
+    x-permission: selfservice.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { description: EMPLOYEE_NOT_LINKED }

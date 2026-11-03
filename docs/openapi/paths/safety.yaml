@@ -1,0 +1,1074 @@
+# Safety & transport — Smart Gate, gate log, pickup authorisation (OTP), visitors,
+# bus tracking, routes & stops, boarding, emergency broadcasts, safeguarding,
+# infirmary, counselling, and the Parent 360 family safety endpoints.
+# Student-linked lists are scoped: teachers see their classes only; gate and
+# transport staff (safety/transport permissions) see every student.
+
+/safety/students:
+  get:
+    tags: [Safety]
+    summary: "Student picker for safety and transport forms (scoped; gate/transport staff see all students)"
+    x-permission: "safety.read or transport.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+      - { name: q, in: query, schema: { type: string } }
+      - { name: routeId, in: query, schema: { type: string, format: uuid } }
+      - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/gate/summary:
+  get:
+    tags: [Safety]
+    summary: "Smart Gate KPIs (arrived, inside, exited, visitors, pending pickup), gate status and cumulative arrivals"
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/gate/feed:
+  get:
+    tags: [Safety]
+    summary: "Today's live activity feed (gate scans, visitors, bus arrivals, pickups, incidents, broadcasts); poll every 30 s"
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/gate/log:
+  get:
+    tags: [Safety]
+    summary: "Per-student daily gate summary (first entry, last exit, status, parent notified)"
+    description: "Sort keys: name, grade, entry, exit, status. Teachers see only their classes."
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: date, in: query, description: "School day (YYYY-MM-DD, Asia/Kolkata); default today", schema: { type: string, format: date } }
+      - { name: classId, in: query, schema: { type: string, format: uuid } }
+      - { name: sectionId, in: query, schema: { type: string, format: uuid } }
+      - { name: status, in: query, schema: { type: string, enum: ['Inside', 'Exited', 'Not arrived'] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/gate/events:
+  get:
+    tags: [Safety]
+    summary: "Raw gate scans for a day"
+    description: "Sort keys: time, name, gate, method."
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: date, in: query, description: "School day (YYYY-MM-DD, Asia/Kolkata); default today", schema: { type: string, format: date } }
+      - { name: direction, in: query, schema: { type: string, enum: [in, out] } }
+      - { name: gate, in: query, schema: { type: string, enum: ['Main Gate', 'Rear Gate', 'Visitor Gate', 'Bus Bay'] } }
+      - { name: method, in: query, schema: { type: string, enum: [RFID, Face, QR, Manual] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Safety]
+    summary: "Record a manual gate entry or exit. Guardians are notified of the first arrival (\"safe arrival\") and first departure (\"left campus\") each day only."
+    description: "409 GATE_DUPLICATE when the student already has the same direction as their last scan today."
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [studentId, direction]
+            properties:
+              studentId: { type: string }
+              direction: { type: string, enum: [in, out] }
+              gate: { type: string, enum: ['Main Gate', 'Rear Gate', 'Visitor Gate', 'Bus Bay'], default: 'Main Gate' }
+              method: { type: string, enum: [RFID, Face, QR, Manual], default: Manual }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/gate/events/export:
+  get:
+    tags: [Safety]
+    summary: "Download the gate log for a day as CSV"
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+      - { name: date, in: query, description: "School day (YYYY-MM-DD, Asia/Kolkata); default today", schema: { type: string, format: date } }
+      - { name: direction, in: query, schema: { type: string, enum: [in, out] } }
+    responses:
+      '200': { description: CSV file, content: { text/csv: { schema: { type: string } } } }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/pickup/summary:
+  get:
+    tags: [Safety]
+    summary: "Pickup KPIs and today's collection / held events"
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/pickup/authorisations:
+  get:
+    tags: [Safety]
+    summary: "Pickup authorisations"
+    description: "Sort keys: student, person, status, last, created."
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: studentId, in: query, schema: { type: string } }
+      - { name: status, in: query, schema: { type: string, enum: [Pending, Verified, Revoked] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Safety]
+    summary: "Add an authorised pickup person (status Pending); guardians are asked to confirm"
+    description: "409 PICKUP_DUPLICATE if the person is already on the list."
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [studentId, personName, relation, method]
+            properties:
+              studentId: { type: string }
+              personName: { type: string, maxLength: 120 }
+              relation: { type: string, maxLength: 40 }
+              phone: { type: string }
+              method: { type: string, enum: ['QR', 'QR + Face', 'Face', 'OTP', 'OTP + ID'] }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/pickup/authorisations/{id}/otp:
+  post:
+    tags: [Safety]
+    summary: "Send a 6-digit one-time code to the registered guardians (only a hash is stored; expires in 10 minutes; max 5 per 30 min). Non-production responses include devCode."
+    description: "429 when too many codes were requested."
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/pickup/authorisations/{id}/verify:
+  post:
+    tags: [Safety]
+    summary: "Verify the one-time code; marks the person Verified. 5 attempts per code."
+    description: "400 OTP_EXPIRED / OTP_INVALID / OTP_LOCKED."
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code]
+            properties:
+              code: { type: string, pattern: '^\d{6}$' }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/pickup/authorisations/{id}/revoke:
+  post:
+    tags: [Safety]
+    summary: "Revoke an authorisation"
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/pickup/authorisations/{id}/collect:
+  post:
+    tags: [Safety]
+    summary: "Release the child to a verified person (records exit, notifies guardians)"
+    description: "409 PICKUP_NOT_VERIFIED."
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              gate: { type: string }
+              notes: { type: string, maxLength: 500 }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/pickup/unauthorised:
+  post:
+    tags: [Safety]
+    summary: "Report an unauthorised pickup attempt: holds the collection, creates a Safeguarding incident and alerts principal, office and guardians"
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [studentId, personName]
+            properties:
+              studentId: { type: string }
+              personName: { type: string }
+              gate: { type: string }
+              notes: { type: string, maxLength: 1000 }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/visitors/summary:
+  get:
+    tags: [Safety]
+    summary: "Visitor KPIs (on site, today, pre-approved, not checked out)"
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/visitors:
+  get:
+    tags: [Safety]
+    summary: "Visitors for a day (visitors still inside always appear on today)"
+    description: "Sort keys: badge, name, host, in, out, status."
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: date, in: query, description: "School day (YYYY-MM-DD, Asia/Kolkata); default today", schema: { type: string, format: date } }
+      - { name: status, in: query, schema: { type: string, enum: [Expected, Inside, Completed, Denied] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Safety]
+    summary: "Check in a visitor now (badge from V- sequence) or pre-approve with expectedAt; the host is notified"
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [fullName, purpose, hostEmployeeId]
+            properties:
+              fullName: { type: string }
+              phone: { type: string }
+              purpose: { type: string, maxLength: 160 }
+              hostEmployeeId: { type: string, format: uuid }
+              campusId: { type: string, format: uuid }
+              expectedAt: { type: string, format: date-time }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/visitors/{id}/check-in:
+  post:
+    tags: [Safety]
+    summary: "Mark a pre-approved visitor as arrived (host notified)"
+    description: "409 VISITOR_STATE."
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/visitors/{id}/check-out:
+  post:
+    tags: [Safety]
+    summary: "Check a visitor out"
+    description: "409 VISITOR_STATE."
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/visitors/{id}/deny:
+  post:
+    tags: [Safety]
+    summary: "Deny entry to a pre-approved visitor"
+    description: "409 VISITOR_STATE."
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/transport/routes:
+  get:
+    tags: [Safety]
+    summary: "Routes with bus, staff, latest GPS position, onboard counts, stops done, ETA and alerts (deviation, delay, GPS, reconciliation), plus campuses for the map"
+    x-permission: "transport.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+      - { name: q, in: query, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Safety]
+    summary: "Create a route"
+    description: "409 DUPLICATE code."
+    x-permission: "transport.manage"
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, name, area, campusId]
+            properties:
+              code: { type: string, pattern: '^[A-Z]{1,3}\d{1,3}$' }
+              name: { type: string }
+              area: { type: string }
+              campusId: { type: string, format: uuid }
+              vehicleId: { type: string, format: uuid, nullable: true }
+              driverId: { type: string, format: uuid, nullable: true }
+              attendantId: { type: string, format: uuid, nullable: true }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/transport/routes/{id}:
+  get:
+    tags: [Safety]
+    summary: "Route detail: ordered stops, assigned students (scoped) with today's boarding, today's GPS trail"
+    x-permission: "transport.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  put:
+    tags: [Safety]
+    summary: "Update a route (any subset of the create fields)"
+    x-permission: "transport.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code: { type: string }
+              name: { type: string }
+              area: { type: string }
+              campusId: { type: string, format: uuid }
+              vehicleId: { type: string, nullable: true }
+              driverId: { type: string, nullable: true }
+              attendantId: { type: string, nullable: true }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  delete:
+    tags: [Safety]
+    summary: "Delete a route without students or boarding history"
+    description: "409 ROUTE_IN_USE / ROUTE_HAS_HISTORY."
+    x-permission: "transport.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/transport/routes/{id}/run:
+  patch:
+    tags: [Safety]
+    summary: "Update run status / delay / ETA. A new or changed delay (or Maintenance) notifies guardians of every student on the route when notifyParents is true."
+    x-permission: "transport.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [runStatus]
+            properties:
+              runStatus: { type: string, enum: ['Scheduled', 'En route', 'Delayed', 'At campus', 'Completed', 'Maintenance'] }
+              delayMinutes: { type: integer, minimum: 0, maximum: 240 }
+              etaText: { type: string, maxLength: 40 }
+              reason: { type: string, maxLength: 200 }
+              notifyParents: { type: boolean, default: true }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/transport/routes/{id}/notify:
+  post:
+    tags: [Safety]
+    summary: "Message the guardians of every student on the route"
+    x-permission: "transport.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [message]
+            properties:
+              message: { type: string, minLength: 5, maxLength: 500 }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/transport/routes/{id}/stops:
+  post:
+    tags: [Safety]
+    summary: "Append a stop"
+    x-permission: "transport.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, latitude, longitude, pickupTime]
+            properties:
+              name: { type: string }
+              latitude: { type: number }
+              longitude: { type: number }
+              pickupTime: { type: string, example: '07:45' }
+              dropTime: { type: string, nullable: true }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/transport/routes/{id}/stops/order:
+  put:
+    tags: [Safety]
+    summary: "Reorder stops (send every stop id once, in order)"
+    x-permission: "transport.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [stopIds]
+            properties:
+              stopIds: { type: array, items: { type: string, format: uuid } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/transport/routes/{id}/stops/{stopId}:
+  put:
+    tags: [Safety]
+    summary: "Update a stop"
+    x-permission: "transport.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - { name: stopId, in: path, required: true, schema: { type: string, format: uuid } }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: { type: string }
+              latitude: { type: number }
+              longitude: { type: number }
+              pickupTime: { type: string }
+              dropTime: { type: string, nullable: true }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  delete:
+    tags: [Safety]
+    summary: "Remove a stop (remaining stops are renumbered)"
+    description: "409 STOP_IN_USE."
+    x-permission: "transport.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - { name: stopId, in: path, required: true, schema: { type: string, format: uuid } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/transport/routes/{id}/students:
+  post:
+    tags: [Safety]
+    summary: "Assign (or move) a student to the route and stop"
+    x-permission: "transport.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [studentId]
+            properties:
+              studentId: { type: string }
+              stopId: { type: string, format: uuid, nullable: true }
+              mode: { type: string, enum: [both, pickup_only, drop_only], default: both }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/transport/routes/{id}/students/{studentId}:
+  delete:
+    tags: [Safety]
+    summary: "Remove a student from the route"
+    x-permission: "transport.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - { name: studentId, in: path, required: true, description: "Student UUID or admission number", schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/transport/vehicles:
+  get:
+    tags: [Safety]
+    summary: "Vehicles (for route assignment)"
+    x-permission: "transport.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/transport/boarding/summary:
+  get:
+    tags: [Safety]
+    summary: "Today's boarding reconciliation by route and afternoon run time"
+    x-permission: "transport.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/transport/boarding:
+  post:
+    tags: [Safety]
+    summary: "Attendant confirms a student boarded / got off (boarding_events + guardian notification)"
+    description: "400 NOT_ON_ROUTE; 409 BOARDING_DUPLICATE / BOARDING_NOT_BOARDED."
+    x-permission: "transport.manage"
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [studentId, routeId, eventType]
+            properties:
+              studentId: { type: string }
+              routeId: { type: string, format: uuid }
+              eventType: { type: string, enum: [boarded, deboarded] }
+              stopId: { type: string, format: uuid, nullable: true }
+              method: { type: string, enum: [RFID, Manual, QR], default: Manual }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/emergency/audience:
+  get:
+    tags: [Safety]
+    summary: "Active accounts per broadcast audience (parents, teachers, staff, management)"
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/emergency/broadcasts:
+  get:
+    tags: [Safety]
+    summary: "Broadcast history"
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Safety]
+    summary: "Send an emergency broadcast (Critical notifications to every chosen role; Emergency/Lockdown/Evacuation also open an incident). confirm must be true."
+    x-permission: "notifications.broadcast or safety.manage"
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [alertType, message, confirm]
+            properties:
+              alertType: { type: string, enum: ['Emergency', 'Drill', 'Urgent operational notice', 'Lockdown', 'Evacuation', 'Weather', 'Transport'] }
+              message: { type: string, minLength: 10, maxLength: 1000 }
+              audiences: { type: array, items: { type: string, enum: [parents, teachers, staff, management] } }
+              channels: { type: string, enum: ['App + WhatsApp + SMS', 'App + WhatsApp', 'SMS only'] }
+              campusId: { type: string, format: uuid }
+              confirm: { type: boolean, enum: [true] }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/incidents/summary:
+  get:
+    tags: [Safety]
+    summary: "Safeguarding / incident KPIs, counts by type and safeguarding compliance items"
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/incidents:
+  get:
+    tags: [Safety]
+    summary: "Incident register. Confidential incidents are returned only to users with students.sensitive (views audited)."
+    description: "Sort keys: code, date, type, severity, status, owner."
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: type, in: query, schema: { type: string, enum: [Safeguarding, Health, Transport, Facilities, Security, Emergency] } }
+      - { name: status, in: query, schema: { type: string, enum: [Open, 'Under Review', Escalated, Closed] } }
+      - { name: severity, in: query, schema: { type: string, enum: [Critical, Attention, Information] } }
+      - { name: studentId, in: query, schema: { type: string } }
+      - { name: from, in: query, description: "From date", schema: { type: string, format: date } }
+      - { name: to, in: query, description: "To date", schema: { type: string, format: date } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Safety]
+    summary: "Log an incident or safeguarding concern (principal notified for safeguarding/critical)"
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [incidentType, summary, severity]
+            properties:
+              incidentType: { type: string }
+              summary: { type: string, minLength: 5, maxLength: 200 }
+              details: { type: string }
+              severity: { type: string, enum: [Critical, Attention, Information] }
+              studentId: { type: string }
+              ownerId: { type: string, format: uuid }
+              occurredOn: { type: string, format: date }
+              isConfidential: { type: boolean }
+              campusId: { type: string, format: uuid }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/incidents/{id}:
+  get:
+    tags: [Safety]
+    summary: "Incident detail (404 for confidential records without students.sensitive)"
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  patch:
+    tags: [Safety]
+    summary: "Update status, severity, owner or details"
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status: { type: string, enum: ['Open', 'Under Review', 'Escalated', 'Closed'] }
+              severity: { type: string }
+              ownerId: { type: string, format: uuid, nullable: true }
+              details: { type: string }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/infirmary/summary:
+  get:
+    tags: [Safety]
+    summary: "Infirmary KPIs and reasons this year"
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/infirmary/visits:
+  get:
+    tags: [Safety]
+    summary: "Infirmary visits for a day"
+    description: "Sort keys: time, student, reason, outcome."
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: date, in: query, description: "School day (YYYY-MM-DD, Asia/Kolkata); default today", schema: { type: string, format: date } }
+      - { name: outcome, in: query, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Safety]
+    summary: "Record a visit (parentInformed notifies guardians)"
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [studentId, reason]
+            properties:
+              studentId: { type: string }
+              reason: { type: string }
+              actionTaken: { type: string }
+              outcome: { type: string, enum: ['Under observation', 'Returned to class', 'Awaiting pickup', 'Sent home', 'Referred to hospital'] }
+              parentInformed: { type: boolean }
+              visitedAt: { type: string, format: date-time }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/infirmary/visits/{id}:
+  patch:
+    tags: [Safety]
+    summary: "Update outcome / action / parent informed"
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              outcome: { type: string }
+              actionTaken: { type: string }
+              parentInformed: { type: boolean }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/counselling/summary:
+  get:
+    tags: [Safety]
+    summary: "Counselling KPIs and reasons"
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/counselling/sessions:
+  get:
+    tags: [Safety]
+    summary: "Counselling sessions. notes is null unless the caller has students.sensitive (hasNotes is always returned)."
+    description: "Sort keys: date, student, status, counsellor."
+    x-permission: "safety.read"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [Scheduled, Completed, Cancelled, Referred] } }
+      - { name: when, in: query, schema: { type: string, enum: [upcoming, past] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Safety]
+    summary: "Book a session (notes require students.sensitive)"
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [studentId, counsellorId, sessionOn, reason]
+            properties:
+              studentId: { type: string }
+              counsellorId: { type: string, format: uuid }
+              sessionOn: { type: string, format: date-time }
+              reason: { type: string }
+              status: { type: string }
+              notes: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/counselling/sessions/{id}:
+  patch:
+    tags: [Safety]
+    summary: "Update a session (notes require students.sensitive)"
+    x-permission: "safety.manage"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status: { type: string }
+              sessionOn: { type: string, format: date-time }
+              notes: { type: string }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/family/children/{studentId}/safety:
+  get:
+    tags: [Safety]
+    summary: "Parent 360: today's gate scans, bus (route, staff, run status, ETA, stop, today's boarding, latest bus position, stops) and pickup list for the parent's own child"
+    x-permission: "parent_portal.use"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: studentId, in: path, required: true, description: "Student UUID or admission number; must be the parent's own child (404 otherwise)", schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/family/children/{studentId}/pickup:
+  post:
+    tags: [Safety]
+    summary: "Parent adds a pickup person (Pending, approved_by_parent); office notified"
+    x-permission: "parent_portal.use"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: studentId, in: path, required: true, description: "Student UUID or admission number; must be the parent's own child (404 otherwise)", schema: { type: string } }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [personName, relation, phone, method]
+            properties:
+              personName: { type: string }
+              relation: { type: string }
+              phone: { type: string }
+              method: { type: string, enum: ['QR', 'QR + Face', 'Face', 'OTP', 'OTP + ID'] }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/family/children/{studentId}/pickup/{id}/confirm:
+  post:
+    tags: [Safety]
+    summary: "Parent confirms a pending pickup person (own child's only)"
+    x-permission: "parent_portal.use"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: studentId, in: path, required: true, description: "Student UUID or admission number; must be the parent's own child (404 otherwise)", schema: { type: string } }
+      - $ref: '#/components/parameters/IdPath'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/family/children/{studentId}/pickup/{id}/revoke:
+  post:
+    tags: [Safety]
+    summary: "Parent revokes a pickup person (own child's only)"
+    x-permission: "parent_portal.use"
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: studentId, in: path, required: true, description: "Student UUID or admission number; must be the parent's own child (404 otherwise)", schema: { type: string } }
+      - $ref: '#/components/parameters/IdPath'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }

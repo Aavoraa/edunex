@@ -1,0 +1,1127 @@
+# Admissions & CRM — enquiries (leads), pipeline, follow-ups, campus visits,
+# applications (→ Student Master on enrolment), referrals, alumni, vendors, partners.
+# Read: admissions.read (CRM: crm.read). Write: admissions.manage (CRM: crm.manage).
+
+/admissions/dashboard:
+  get:
+    tags: [Admissions]
+    summary: Admissions dashboard — KPIs, funnel, sources, monthly trend, cost per admission, attention list
+    description: Computed from current-year enquiries, stage history, follow-ups and applications.
+    x-permission: admissions.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '401': { $ref: '#/components/responses/Unauthorized' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/admissions/conversion:
+  get:
+    tags: [Admissions]
+    summary: Conversion analytics — stage conversion, source effectiveness and cost, counsellor performance, lost reasons
+    x-permission: admissions.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/admissions/counsellors:
+  get:
+    tags: [Admissions]
+    summary: Admissions counsellors / front-office staff with open lead counts
+    x-permission: admissions.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/enquiries:
+  get:
+    tags: [Admissions]
+    summary: List leads (enquiries)
+    x-permission: admissions.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [created, code, student, parent, grade, curriculum, source, stage, score, counsellor, next] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: stage, in: query, schema: { type: string, enum: [New Lead, Contacted, Qualified, Visit Scheduled, Visit Completed, Application, Assessment, Offer, Enrolled, Lost] } }
+      - { name: stages, in: query, description: Comma-separated stages, schema: { type: string } }
+      - { name: source, in: query, schema: { type: string, enum: [WhatsApp, Website, Meta Ads, Referral, Google, Walk-in, Instagram, Phone] } }
+      - { name: counsellorId, in: query, description: Employee id or `unassigned`, schema: { type: string } }
+      - { name: grade, in: query, schema: { type: string, example: Grade 4 } }
+      - { name: open, in: query, description: Exclude Enrolled and Lost, schema: { type: boolean } }
+      - { name: overdue, in: query, description: Next action is overdue, schema: { type: boolean } }
+      - { name: from, in: query, schema: { type: string, format: date } }
+      - { name: to, in: query, schema: { type: string, format: date } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Admissions]
+    summary: Create a lead (New Lead + first-contact follow-up; notifies the counsellor if assigned)
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [campusId, parentName, phone, studentName, gradeApplied, source]
+            properties:
+              campusId: { type: string, format: uuid }
+              parentName: { type: string }
+              phone: { type: string, example: '+91 98844 21007' }
+              email: { type: string, format: email }
+              studentName: { type: string }
+              studentDob: { type: string, format: date }
+              gradeApplied: { type: string, example: Grade 4 }
+              curriculum: { type: string }
+              source: { type: string, enum: [WhatsApp, Website, Meta Ads, Referral, Google, Walk-in, Instagram, Phone] }
+              campaign: { type: string }
+              leadScore: { type: integer, minimum: 0, maximum: 100, default: 50 }
+              counsellorId: { type: string, format: uuid, nullable: true }
+              transportRequired: { type: boolean, default: false }
+              notes: { type: string }
+              referredByParentId: { type: string, format: uuid }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '409': { description: An open lead already exists for this child (DUPLICATE_LEAD) }
+
+/enquiries/summary:
+  get:
+    tags: [Admissions]
+    summary: Enquiry capture this month — channel mix, WhatsApp AI answered, needing a human, duplicates
+    x-permission: admissions.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/enquiries/pipeline:
+  get:
+    tags: [Admissions]
+    summary: Open leads grouped by the nine pipeline stages (Enrolled = last 60 days)
+    x-permission: admissions.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/enquiries/auto-assign:
+  post:
+    tags: [Admissions]
+    summary: Assign every open, unassigned lead to the counsellor with the fewest open leads (notifies them)
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      content:
+        application/json:
+          schema: { type: object, properties: { campusId: { type: string, format: uuid } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/enquiries/{id}:
+  parameters:
+    - { name: id, in: path, required: true, description: Lead uuid or code (LD-4412), schema: { type: string } }
+  get:
+    tags: [Admissions]
+    summary: Lead profile — detail, stage history, follow-ups, communication history, application and documents
+    x-permission: admissions.read
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  patch:
+    tags: [Admissions]
+    summary: Update lead details
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              campusId: { type: string, format: uuid }
+              parentName: { type: string }
+              phone: { type: string }
+              email: { type: string, format: email }
+              studentName: { type: string }
+              studentDob: { type: string, format: date }
+              gradeApplied: { type: string }
+              curriculum: { type: string }
+              source: { type: string }
+              campaign: { type: string }
+              leadScore: { type: integer }
+              transportRequired: { type: boolean }
+              notes: { type: string }
+              nextAction: { type: string }
+              nextActionAt: { type: string, format: date-time, nullable: true }
+              acquisitionCost: { type: number }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  delete:
+    tags: [Admissions]
+    summary: Delete a lead (soft delete; not allowed once an application exists)
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+      '409': { description: The lead has an application (HAS_APPLICATION) }
+
+/enquiries/{id}/stage:
+  parameters:
+    - { name: id, in: path, required: true, description: Lead uuid or code, schema: { type: string } }
+  post:
+    tags: [Admissions]
+    summary: Change pipeline stage with a note (written to enquiry_stage_history)
+    description: >
+      'Enrolled' is rejected (USE_ENROL) — enrol through the application. Moving to Application/Assessment/Offer
+      opens an application if none exists and advances it; Lost withdraws an open application and cancels follow-ups.
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [stage, note]
+            properties:
+              stage: { type: string, enum: [New Lead, Contacted, Qualified, Visit Scheduled, Visit Completed, Application, Assessment, Offer, Lost] }
+              note: { type: string, minLength: 3 }
+              lostReason: { type: string, description: Required when stage is Lost }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/enquiries/{id}/assign:
+  parameters:
+    - { name: id, in: path, required: true, schema: { type: string } }
+  post:
+    tags: [Admissions]
+    summary: Assign (or remove) the counsellor; the counsellor's user account is notified
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, required: [counsellorId], properties: { counsellorId: { type: string, format: uuid, nullable: true } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/enquiries/{id}/follow-ups:
+  parameters:
+    - { name: id, in: path, required: true, schema: { type: string } }
+  post:
+    tags: [Admissions]
+    summary: Schedule a follow-up (Campus Visit moves the lead to Visit Scheduled)
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [type, scheduledAt, notes]
+            properties:
+              type: { type: string, enum: [Call, WhatsApp, Email, SMS, Campus Visit, Meeting, Note] }
+              scheduledAt: { type: string, format: date-time }
+              notes: { type: string }
+              assignedTo: { type: string, format: uuid, nullable: true, description: Defaults to the lead's counsellor }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/enquiries/{id}/communications:
+  parameters:
+    - { name: id, in: path, required: true, schema: { type: string } }
+  post:
+    tags: [Admissions]
+    summary: Log a call, message or note in the lead's communication history (nothing is sent)
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [channel, subject]
+            properties:
+              channel: { type: string, enum: [WhatsApp, Email, SMS, Call, Note] }
+              subject: { type: string }
+              body: { type: string }
+              direction: { type: string, enum: [inbound, outbound, internal] }
+              status: { type: string, example: No answer }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/follow-ups:
+  get:
+    tags: [Admissions]
+    summary: List follow-ups across leads
+    x-permission: admissions.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: type, in: query, schema: { type: string } }
+      - { name: status, in: query, schema: { type: string, enum: [Scheduled, Completed, Missed, Cancelled] } }
+      - { name: due, in: query, schema: { type: string, enum: [overdue, today, upcoming] } }
+      - { name: assignedTo, in: query, schema: { type: string, format: uuid } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/follow-ups/{id}:
+  patch:
+    tags: [Admissions]
+    summary: Complete, mark missed/cancelled, reschedule or reassign a follow-up
+    description: Completing a Campus Visit moves the lead to Visit Completed; an outcome is required to complete.
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status: { type: string, enum: [Scheduled, Completed, Missed, Cancelled] }
+              outcome: { type: string }
+              notes: { type: string }
+              scheduledAt: { type: string, format: date-time }
+              assignedTo: { type: string, format: uuid, nullable: true }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/visits:
+  get:
+    tags: [Admissions]
+    summary: Campus visits (follow-ups of type Campus Visit)
+    x-permission: admissions.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [when, family, grade, host, status] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: range, in: query, schema: { type: string, enum: [week, upcoming, past, all], default: week } }
+      - { name: status, in: query, schema: { type: string, enum: [Scheduled, Completed, Missed, Cancelled] } }
+      - { name: unhosted, in: query, schema: { type: boolean } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Admissions]
+    summary: Schedule a campus visit for a lead
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [enquiryId, scheduledAt]
+            properties:
+              enquiryId: { type: string, format: uuid }
+              scheduledAt: { type: string, format: date-time }
+              hostId: { type: string, format: uuid, nullable: true }
+              notes: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/visits/summary:
+  get:
+    tags: [Admissions]
+    summary: Visits this week, needing a host, completed, visit → application, no-show rate
+    x-permission: admissions.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/applications:
+  get:
+    tags: [Admissions]
+    summary: List applications with blocking item and document progress
+    x-permission: admissions.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [created, student, applicationNo, grade, status, curriculum, offerExpiresOn, assessmentAt] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [live, Draft, Submitted, Under Review, Assessment Scheduled, Offer Made, Accepted, Enrolled, Rejected, Withdrawn] } }
+      - { name: grade, in: query, schema: { type: string } }
+      - { name: documents, in: query, schema: { type: string, enum: [complete, incomplete] } }
+      - { name: form, in: query, description: 'Admission form status — none (not received), manual, upload, both, received (any)', schema: { type: string, enum: [none, manual, upload, both, received] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Admissions]
+    summary: Open an application for an existing lead or a walk-in family, optionally with the admission form
+    description: >
+      Send either enquiryId (existing lead) or walkIn (a lead is created and moved to Application). Creates the
+      standard document checklist. With `form` (the manually entered admission form) the application stays a Draft
+      until submit=true and every required field is present. formSource records how the form arrived; upload the
+      scan with POST /applications/{id}/form/upload.
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              enquiryId: { type: string, format: uuid }
+              walkIn:
+                type: object
+                required: [campusId, parentName, phone, studentName, gradeApplied]
+                properties:
+                  campusId: { type: string, format: uuid }
+                  parentName: { type: string }
+                  phone: { type: string }
+                  email: { type: string, format: email }
+                  studentName: { type: string }
+                  gradeApplied: { type: string, example: Grade 4 }
+                  curriculum: { type: string }
+                  source: { type: string, default: Walk-in }
+                  counsellorId: { type: string, format: uuid, nullable: true }
+              dateOfBirth: { type: string, format: date }
+              gender: { type: string, enum: [M, F, O] }
+              previousSchool: { type: string }
+              form: { type: object, description: 'Admission form fields — see PUT /applications/{id}/form' }
+              formSource: { type: string, enum: [Manual, Upload, Online] }
+              receivedOn: { type: string, format: date }
+              submit: { type: boolean, default: false }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '409': { description: The lead already has an open application, or an open lead already exists for this child }
+
+/applications/import/template:
+  get:
+    tags: [Admissions]
+    summary: CSV template for bulk-importing filled admission forms (header row + one example)
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { description: text/csv file }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/applications/import:
+  post:
+    tags: [Admissions]
+    summary: Bulk import filled admission forms from CSV — one lead + application per row
+    description: >
+      Rows are validated individually and reported with their spreadsheet row number; valid rows are imported
+      (each in its own transaction), invalid or duplicate rows are listed with field errors. dryRun=true only validates.
+      Required columns studentName, gradeApplied, parentName, phone; every admission form field may be a column. Max 300 rows, 2 MB.
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [file, campusId]
+            properties:
+              file: { type: string, format: binary }
+              campusId: { type: string, format: uuid }
+              dryRun: { type: boolean, default: false }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/applications/{id}/form:
+  parameters:
+    - $ref: '#/components/parameters/IdPath'
+  get:
+    tags: [Admissions]
+    summary: The admission form — typed fields, completeness, received date and the uploaded scan
+    x-permission: admissions.read
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  put:
+    tags: [Admissions]
+    summary: Save (draft) or submit the manually entered admission form
+    description: >
+      The whole form is sent each time and replaces the saved one. Drafts may be partial; submit=true (and any save
+      after submission) requires student first/last name, DOB, gender, primary contact with name and phone, address,
+      city and the declaration signatory. Submitting moves a Draft application to Submitted. Student name, DOB,
+      gender, grade, previous school and transport are copied onto the application and the lead.
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              receivedOn: { type: string, format: date }
+              submit: { type: boolean, default: false }
+              form:
+                type: object
+                properties:
+                  studentFirstName: { type: string }
+                  studentLastName: { type: string }
+                  dateOfBirth: { type: string, format: date }
+                  gender: { type: string, enum: [M, F, O] }
+                  gradeApplied: { type: string }
+                  placeOfBirth: { type: string }
+                  nationality: { type: string }
+                  religion: { type: string }
+                  motherTongue: { type: string }
+                  bloodGroup: { type: string, enum: [A+, A-, B+, B-, AB+, AB-, O+, O-] }
+                  fatherName: { type: string }
+                  fatherOccupation: { type: string }
+                  fatherPhone: { type: string }
+                  fatherEmail: { type: string }
+                  motherName: { type: string }
+                  motherOccupation: { type: string }
+                  motherPhone: { type: string }
+                  motherEmail: { type: string }
+                  guardianName: { type: string }
+                  guardianRelationship: { type: string }
+                  guardianPhone: { type: string }
+                  guardianEmail: { type: string }
+                  primaryContact: { type: string, enum: [Father, Mother, Guardian] }
+                  address: { type: string }
+                  city: { type: string }
+                  state: { type: string }
+                  pincode: { type: string, pattern: '^[0-9]{6}$' }
+                  emergencyContactName: { type: string }
+                  emergencyContactPhone: { type: string }
+                  previousSchool: { type: string }
+                  previousBoard: { type: string }
+                  previousGrade: { type: string }
+                  reasonForLeaving: { type: string }
+                  siblingsInSchool: { type: boolean }
+                  siblingDetails: { type: string }
+                  medicalNotes: { type: string }
+                  allergies: { type: string }
+                  specialNeeds: { type: string }
+                  transportRequired: { type: boolean }
+                  declarationSignedBy: { type: string }
+                  declarationDate: { type: string, format: date }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/applications/{id}/form/upload:
+  post:
+    tags: [Admissions]
+    summary: Upload (or replace) the filled / scanned admission form — PDF, PNG, JPEG or WebP
+    description: Stored as a documents row (owner_type admission, category "Admission form"); a replaced scan is archived. Sets form_source Upload when nothing was typed in yet.
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [file]
+            properties:
+              file: { type: string, format: binary }
+              receivedOn: { type: string, format: date }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/applications/{id}/documents/{docId}/upload:
+  post:
+    tags: [Admissions]
+    summary: Upload the file for a checklist document (Birth certificate…) — status becomes Submitted, verify as before
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - { name: docId, in: path, required: true, schema: { type: string, format: uuid } }
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [file]
+            properties:
+              file: { type: string, format: binary }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/applications/{id}/documents/{docId}/download:
+  get:
+    tags: [Admissions]
+    summary: Download an application file (the admission form scan or a checklist document); the read is audited
+    x-permission: admissions.read + documents.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - { name: docId, in: path, required: true, schema: { type: string, format: uuid } }
+    responses:
+      '200': { description: The file (attachment) }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/applications/summary:
+  get:
+    tags: [Admissions]
+    summary: Application workflow counts for the current year
+    x-permission: admissions.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/applications/{id}:
+  parameters:
+    - $ref: '#/components/parameters/IdPath'
+  get:
+    tags: [Admissions]
+    summary: Application detail with documents
+    x-permission: admissions.read
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  patch:
+    tags: [Admissions]
+    summary: Update application details (open applications only)
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              studentName: { type: string }
+              dateOfBirth: { type: string, format: date, nullable: true }
+              gender: { type: string, enum: [M, F, O], nullable: true }
+              previousSchool: { type: string }
+              assessmentAt: { type: string, format: date-time, nullable: true }
+              assessmentScore: { type: number, nullable: true }
+              offerExpiresOn: { type: string, format: date, nullable: true }
+              feePaid: { type: boolean }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/applications/{id}/status:
+  post:
+    tags: [Admissions]
+    summary: Move an application through the workflow
+    description: >
+      Submitted → Under Review → Assessment Scheduled → Offer Made → Accepted (→ enrol); Rejected / Withdrawn from open states.
+      Offer Made requires every document verified. Rejected/Withdrawn close the lead as Lost. The lead stage follows the application.
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status, note]
+            properties:
+              status: { type: string, enum: [Submitted, Under Review, Assessment Scheduled, Offer Made, Accepted, Rejected, Withdrawn] }
+              note: { type: string }
+              assessmentAt: { type: string, format: date-time, description: Required for Assessment Scheduled }
+              assessmentScore: { type: number }
+              offerExpiresOn: { type: string, format: date, description: Defaults to 14 days for Offer Made }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/applications/{id}/documents/{docId}:
+  patch:
+    tags: [Admissions]
+    summary: Set an application document's status (Verified records the verifier)
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - { name: docId, in: path, required: true, schema: { type: string, format: uuid } }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, required: [status], properties: { status: { type: string, enum: [Pending, Submitted, Verified, Rejected] } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/applications/{id}/enrol:
+  post:
+    tags: [Admissions]
+    summary: Enrol an accepted applicant — creates the Student Master record
+    description: >
+      In one transaction: students + enrollments + guardian (existing parent by id or phone, else a new parents row)
+      + student_guardians + optional student_transport + student_tracking_profiles (disabled) + timeline event;
+      sets admissions.student_id / status Enrolled, moves the lead to Enrolled, updates any referral, notifies principals.
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [sectionId]
+            description: Student and guardian fields left out are taken from the admission form; the other parent on the form is linked as a second guardian.
+            properties:
+              sectionId: { type: string, format: uuid, description: Must be on the application's campus }
+              firstName: { type: string }
+              lastName: { type: string }
+              dateOfBirth: { type: string, format: date }
+              gender: { type: string, enum: [M, F, O] }
+              admittedOn: { type: string, format: date }
+              house: { type: string }
+              address: { type: string }
+              city: { type: string }
+              pincode: { type: string, pattern: '^[0-9]{6}$' }
+              guardian:
+                type: object
+                properties:
+                  parentId: { type: string, format: uuid }
+                  fullName: { type: string, description: Defaults to the lead's parent }
+                  phone: { type: string, description: Defaults to the lead's phone }
+                  email: { type: string, format: email }
+                  relationship: { type: string, enum: [Father, Mother, Guardian] }
+              transport:
+                type: object
+                properties:
+                  routeId: { type: string, format: uuid }
+                  stopId: { type: string, format: uuid }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+      '409': { description: Already enrolled, or the section is full }
+
+/referrals:
+  get:
+    tags: [Admissions]
+    summary: List parent referrals
+    x-permission: admissions.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [created, parent, status, referredName] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [Submitted, Contacted, Enrolled, Lost] } }
+      - { name: rewardStatus, in: query, schema: { type: string, enum: [Not eligible, Pending, Credited] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Admissions]
+    summary: Record a referral from an existing parent (optionally creating a Referral lead)
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [referrerParentId, referredName]
+            properties:
+              referrerParentId: { type: string, format: uuid }
+              referredName: { type: string }
+              createLead: { type: boolean, default: true }
+              lead:
+                type: object
+                required: [campusId, parentName, phone, gradeApplied]
+                properties:
+                  campusId: { type: string, format: uuid }
+                  parentName: { type: string }
+                  phone: { type: string }
+                  gradeApplied: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/referrals/summary:
+  get:
+    tags: [Admissions]
+    summary: Referral KPIs and referring families with recognition status
+    x-permission: admissions.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/referrals/referrers:
+  get:
+    tags: [Admissions]
+    summary: Search parents who can be recorded as referrers
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: q, in: query, required: true, schema: { type: string, minLength: 2 } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/referrals/{id}/reward:
+  patch:
+    tags: [Admissions]
+    summary: Mark referral recognition Pending or Credited (enrolled referrals only)
+    x-permission: admissions.manage
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, required: [rewardStatus], properties: { rewardStatus: { type: string, enum: [Pending, Credited] } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/alumni:
+  get:
+    tags: [Admissions]
+    summary: Alumni directory
+    x-permission: crm.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [name, batch, university, engagement, updatedAt] } }
+      - $ref: '#/components/parameters/Dir'
+      - { name: engagement, in: query, schema: { type: string, enum: [High, Medium, Low] } }
+      - { name: batch, in: query, schema: { type: integer } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Admissions]
+    summary: Add an alumnus
+    x-permission: crm.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              fullName: { type: string }
+              batchYear: { type: integer }
+              university: { type: string }
+              career: { type: string }
+              email: { type: string, format: email }
+              phone: { type: string }
+              engagement: { type: string, enum: [High, Medium, Low] }
+              lastEngagement: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/alumni/summary:
+  get:
+    tags: [Admissions]
+    summary: Alumni KPIs and destinations of the last five batches
+    x-permission: crm.read
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/alumni/{id}:
+  patch:
+    tags: [Admissions]
+    summary: Update an alumnus
+    x-permission: crm.manage
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              fullName: { type: string }
+              batchYear: { type: integer }
+              university: { type: string }
+              career: { type: string }
+              email: { type: string, format: email }
+              phone: { type: string }
+              engagement: { type: string, enum: [High, Medium, Low] }
+              lastEngagement: { type: string }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/vendors:
+  get:
+    tags: [Admissions]
+    summary: Vendors and contracts
+    x-permission: crm.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [name, category, contractEnd, value, status] } }
+      - $ref: '#/components/parameters/Dir'
+      - { name: status, in: query, schema: { type: string, enum: [Active, Renewal due, Expired, Suspended] } }
+      - { name: category, in: query, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Admissions]
+    summary: Add a vendor
+    x-permission: crm.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: { type: string }
+              category: { type: string }
+              contactPerson: { type: string }
+              phone: { type: string }
+              email: { type: string, format: email }
+              contractStart: { type: string, format: date }
+              contractEnd: { type: string, format: date }
+              contractValue: { type: number }
+              status: { type: string, enum: [Active, Renewal due, Expired, Suspended] }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/vendors/summary:
+  get:
+    tags: [Admissions]
+    summary: Vendor KPIs (active, renewals due, contract value, partners)
+    x-permission: crm.read
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/vendors/{id}:
+  patch:
+    tags: [Admissions]
+    summary: Update a vendor
+    x-permission: crm.manage
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: { type: string }
+              category: { type: string }
+              contactPerson: { type: string }
+              phone: { type: string }
+              email: { type: string, format: email }
+              contractStart: { type: string, format: date }
+              contractEnd: { type: string, format: date }
+              contractValue: { type: number }
+              status: { type: string, enum: [Active, Renewal due, Expired, Suspended] }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/partners:
+  get:
+    tags: [Admissions]
+    summary: Partners and institutions
+    x-permission: crm.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [name, sinceYear, partnerType] } }
+      - $ref: '#/components/parameters/Dir'
+      - { name: status, in: query, schema: { type: string, enum: [Active, Inactive] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Admissions]
+    summary: Add a partner
+    x-permission: crm.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, partnerType]
+            properties:
+              name: { type: string }
+              partnerType: { type: string, example: Institution }
+              sinceYear: { type: integer }
+              status: { type: string, enum: [Active, Inactive], default: Active }
+              note: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/partners/{id}:
+  patch:
+    tags: [Admissions]
+    summary: Update a partner
+    x-permission: crm.manage
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: { type: string }
+              partnerType: { type: string }
+              sinceYear: { type: integer }
+              status: { type: string, enum: [Active, Inactive] }
+              note: { type: string }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/crm/communications:
+  get:
+    tags: [Admissions]
+    summary: Communication history across parents, leads, alumni, vendors and partners
+    x-permission: crm.read + communication.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [when, channel, who] } }
+      - $ref: '#/components/parameters/Dir'
+      - { name: channel, in: query, schema: { type: string, enum: [WhatsApp, Email, SMS, Call, Note, In-app] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }

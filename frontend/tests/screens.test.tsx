@@ -1,0 +1,217 @@
+/**
+ * Screen smoke test: renders every route each role may open, against the REAL
+ * running API (seeded database), and fails on render crashes, console errors,
+ * or error states shown to the user.
+ *
+ * Requires: API on API_URL (default http://127.0.0.1:4000) and SEED_DEMO_PASSWORD.
+ *   npm run test:screens --workspace frontend
+ */
+import { afterAll, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, render } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const API = (process.env.API_URL ?? 'http://127.0.0.1:4000') + '/api';
+const PASSWORD = process.env.SEED_DEMO_PASSWORD ?? '';
+const session: { current: { accessToken: string } | null } = { current: null };
+
+vi.mock('@/api/client', async (orig) => {
+  const mod = await orig<typeof import('@/api/client')>();
+  return { ...mod, refreshAccessToken: async () => session.current };
+});
+
+const { setAccessToken } = await import('@/api/client');
+const { AuthProvider } = await import('@/auth/AuthContext');
+const { I18nProvider } = await import('@/i18n/I18nProvider');
+const { ConfirmProvider, ToastProvider } = await import('@/components/ui');
+const { APP_ROUTES } = await import('@/pages/registry');
+const { default: App } = await import('@/App');
+
+const ACCOUNTS: Record<string, string> = {
+  super_admin: 'admin.demo@edunex.edu',
+  principal: 'meera.krishnan.demo@edunex.edu',
+  teacher: 'priya.raghavan.demo@edunex.edu',
+  parent: 'ranjith.kumar.demo@parents.edunex.edu',
+  office: 'kavitha.s.demo@edunex.edu',
+  staff: 'murugan.p.demo@edunex.edu',
+  hr: 'lakshmi.n.demo@edunex.edu',
+  finance: 'rajesh.iyer.demo@edunex.edu',
+  student: 'aditya.kumar.demo@students.edunex.edu',
+};
+
+async function apiGet(path: string, token: string) {
+  const r = await fetch(API + path, { headers: { Authorization: `Bearer ${token}` } });
+  return (await r.json()).data;
+}
+
+async function login(email: string) {
+  const r = await fetch(API + '/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier: email, password: PASSWORD, clientType: 'mobile' }),
+  });
+  const j = await r.json();
+  if (!j.success) throw new Error(`login failed for ${email}: ${j.message}`);
+  return j.data as { accessToken: string; user: { permissions: string[] } };
+}
+
+/** Values for route parameters, looked up once with an admin token. */
+async function paramValues(token: string) {
+  const s = await apiGet('/students/HS-2026-1041', token);
+  const projects = await apiGet('/innovation/projects?pageSize=1', token).catch(() => []);
+  const slips = await apiGet('/payslips?pageSize=1', token).catch(() => []);
+  // Paper Correction: an exam and an answer sheet, when the marking service is connected
+  const exams = await apiGet('/exam-correction/api/exams', token).catch(() => null);
+  const examId = Array.isArray(exams) ? exams[0]?.id as string | undefined : undefined;
+  const sheets = examId ? await apiGet(`/exam-correction/api/exams/${examId}/submissions`, token).catch(() => null) : null;
+  return {
+    examId,
+    sheetId: (Array.isArray(sheets) ? sheets[0]?.id : undefined) as string | undefined,
+    studentId: s.id as string,
+    projectId: (Array.isArray(projects) ? projects[0]?.id : undefined) as string | undefined,
+    payslipId: (Array.isArray(slips) ? slips[0]?.id : undefined) as string | undefined,
+  };
+}
+
+function resolvePath(path: string, p: Awaited<ReturnType<typeof paramValues>>, role: string) {
+  return path
+    .replace('/admin/reports/:key', '/admin/reports/attendance-daily')
+    .replace('/projects/:id', p.projectId ? `/projects/${p.projectId}` : '/projects/__missing__')
+    .replace('/staff-self/payslips/:id', role === 'staff' ? '/staff-self' : '/staff-self')
+    .replace('/payslips/:id', p.payslipId ? `/payslips/${p.payslipId}` : '/payslips')
+    .replace('/paper-correction/exams/:id', p.examId ? `/paper-correction/exams/${p.examId}` : '/paper-correction')
+    .replace('/paper-correction/sheets/:id', p.sheetId ? `/paper-correction/sheets/${p.sheetId}` : '/paper-correction')
+    .replace(':studentId', p.studentId)
+    .replace(':id', p.studentId);
+}
+
+async function settle(container: HTMLElement, timeoutMs = 12000) {
+  const start = Date.now();
+  let quietSince = 0;
+  while (Date.now() - start < timeoutMs) {
+    await act(async () => { await new Promise((r) => setTimeout(r, 150)); });
+    const busy = container.querySelector('.skeleton, [aria-busy="true"]:not(button)');
+    if (!busy) {
+      if (!quietSince) quietSince = Date.now();
+      if (Date.now() - quietSince > 600) return true;
+    } else quietSince = 0;
+  }
+  return false;
+}
+
+const ERROR_TEXT = [/We could not load this/i, /Something went wrong/i, /Screen not found/i, /Not available for this role/i, /Cannot reach the server/i, /Not available for your role/i];
+
+const TABS: Record<string, string[]> = {
+  '/parent-360': ['track', 'academics', 'safety', 'fees', 'more'],
+  '/student-360/:id': ['academics', 'attendance', 'skills', 'activities', 'behaviour', 'wellbeing', 'achievements', 'portfolio', 'interventions', 'documents', 'tracking'],
+  '/my-profile': ['academics', 'documents'],
+  '/student-tracking/:id': [],
+  '/paper-correction/exams/:id': ['questions', 'results', 'setup'],
+};
+
+const errors: string[] = [];
+const origError = console.error;
+console.error = (...args: unknown[]) => {
+  const msg = args.map(String).join(' ');
+  // Known jsdom limitations, not application errors
+  if (/Not implemented: (HTMLCanvasElement|window.scrollTo|navigation)|Could not parse CSS stylesheet/.test(msg)) return;
+  errors.push(msg.slice(0, 400));
+};
+afterAll(() => { console.error = origError; });
+
+/** Content that must appear, proving the screen shows real data (not just no errors). */
+const EXPECT: Record<string, RegExp[]> = {
+  '/parent-360': [/Aditya/, /Open live location/],
+  '/parent-360?tab=track': [/Student Tracking/, /Latitude/, /Longitude/, /Last Updated/],
+  '/parent-360?tab=fees': [/Total outstanding/, /Tuition/],
+  '/parent-360?tab=safety': [/Pickup authorisation/],
+  '/parent-360?tab=more': [/Parent–teacher meeting/, /Circulars/],
+  '/student-360/:id': [/Aditya Kumar/, /HS-2026-1041/, /Growth timeline/, /Skill web/, /Strongest:/],
+  '/student-360/:id?tab=tracking': [/Student Tracking/, /Latitude/, /Last Updated/],
+  '/student-tracking': [/Student Tracking/, /Students tracked/],
+  '/student-tracking/:id': [/Aditya Kumar/, /Latitude/],
+  '/command-center': [/Total Students/, /Attendance Overview/],
+  '/students': [/Aditya Kumar|Students/],
+  // Sections 2–5 need audit.read, so only the parts every permitted role sees are asserted.
+  '/paper-correction': [/Paper Correction/, /Examinations/],
+  '/paper-correction/exams/:id': [/answer sheets/, /Bulk upload/, /Upload|Review/],
+  '/paper-correction/sheets/:id': [/Reading/, /Q1/],
+  '/overview': [/signed in|first recorded sign-in/, /1\. School overview/, /Fees collected/, /Net position/, /What families still owe/],
+};
+
+// The Owner Overview shows its money parts only with finance.read (a role with just audit.read sees the rest).
+const MONEY = new Set([/Fees collected/, /Net position/, /What families still owe/].map(String));
+
+// The student's home screen shows their skill web
+EXPECT['/my-profile'] = [/My skill web/, /Strongest:/];
+
+const onlyRoles = process.env.ROLES?.split(',');
+const report: string[] = [];
+
+describe.each(Object.keys(ACCOUNTS).filter((r) => !onlyRoles || onlyRoles.includes(r)))('screens as %s', (role) => {
+  it('renders every permitted route without errors', async () => {
+    const { accessToken, user } = await login(ACCOUNTS[role]);
+    const admin = await login(ACCOUNTS.principal);
+    const params = await paramValues(admin.accessToken);
+    const perms = new Set(user.permissions);
+    const routes = APP_ROUTES.filter((r) => !r.perm || r.perm.some((p) => perms.has(p)));
+    const failures: string[] = [];
+
+    const targets = routes.flatMap((r) => [r.path, ...(TABS[r.path] ?? []).map((t) => `${r.path}?tab=${t}`)]);
+    for (const target of targets) {
+      if (role === 'student' && target.startsWith('/student-360')) continue;
+      const path = resolvePath(target, params, role);
+      errors.length = 0;
+      setAccessToken(accessToken);
+      session.current = { accessToken };
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false, refetchInterval: false } } });
+      const { container, unmount } = render(
+        <QueryClientProvider client={qc}>
+          <MemoryRouter initialEntries={[path]}>
+            <I18nProvider>
+              <ToastProvider>
+                <ConfirmProvider>
+                  <AuthProvider>
+                    <App />
+                  </AuthProvider>
+                </ConfirmProvider>
+              </ToastProvider>
+            </I18nProvider>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+      const settled = await settle(container);
+      const text = container.textContent ?? '';
+      // Error states are matched on their titles (empty-state headings, page titles, critical banners), not body copy.
+      const titles = [...container.querySelectorAll('.empty .h3, .pagehead__title, .banner--critical')].map((e) => e.textContent).join(' | ');
+      const shown = ERROR_TEXT.filter((re) => re.test(titles)).map(String);
+      const trackingTarget = /tab=tracking|tab=track|student-tracking/.test(target);
+      const canTrack = ['tracking.read_all', 'tracking.read_assigned', 'tracking.read_own_children'].some((p) => perms.has(p));
+      // Personal workspaces (Parent 360, My Profile, Staff Self-Service) show one
+      // person's own records. Administrators hold the permission but have no
+      // parent, student or employee record behind it, so the page correctly
+      // reports that nothing is linked — assert content only for a role that
+      // owns such a record. The menu hides these from administrators for the
+      // same reason (NOT_FOR_ADMINS in layouts/nav.ts).
+      const personalTarget = /^\/(parent-360|my-profile|staff-self)/.test(target);
+      const ownsRecord = !!(user.parentId ?? user.studentId ?? user.employeeId);
+      // Paper Correction content needs its marking service; without it the page says "not connected".
+      const paperOffline = target.startsWith('/paper-correction') && !params.examId;
+      const skipContent = (trackingTarget && !canTrack) || (personalTarget && !ownsRecord) || paperOffline;
+      const missing = (skipContent ? [] : EXPECT[target] ?? [])
+        .filter((re) => perms.has('finance.read') || !MONEY.has(String(re)))
+        .filter((re) => !re.test(text)).map(String);
+      if (missing.length) failures.push(`${path}: missing ${missing.join(', ')}`);
+      const heading = container.querySelector('h1')?.textContent?.trim() ?? '(no h1)';
+      if (!settled) failures.push(`${path}: still loading after 12 s`);
+      if (shown.length) failures.push(`${path}: shows ${shown.join(', ')} — ${text.slice(0, 200)}`);
+      if (errors.length) failures.push(`${path}: console.error → ${errors[0]}`);
+      report.push(`${role.padEnd(9)} ${failures.some((f) => f.startsWith(path + ':')) ? 'FAIL' : 'ok  '} ${path} — ${heading}`);
+      unmount();
+      qc.clear();
+      cleanup();
+    }
+    console.log(report.filter((r) => r.startsWith(role.padEnd(9))).join('\n'));
+    expect(failures, failures.join('\n')).toEqual([]);
+  }, 900_000);
+});

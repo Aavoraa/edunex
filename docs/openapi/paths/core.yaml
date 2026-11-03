@@ -1,0 +1,756 @@
+# Core endpoints: auth, public config, dashboard, students, tracking, parents,
+# notifications, tasks, search, lookups, documents, users, settings, audit.
+
+/health:
+  get:
+    tags: [Public]
+    summary: Liveness and database health
+    security: []
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '503': { description: Database unavailable }
+
+/public/config:
+  get:
+    tags: [Public]
+    summary: School branding, campuses, academic year, map tile settings (and demo accounts outside production)
+    security: []
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/auth/login:
+  post:
+    tags: [Auth]
+    summary: Sign in with email or mobile number
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [identifier, password]
+            properties:
+              identifier: { type: string, example: ranjith.kumar.demo@parents.edunex.edu }
+              password: { type: string, format: password }
+              clientType: { type: string, enum: [web, mobile, integration], description: 'mobile/integration receive refreshToken in the body' }
+    responses:
+      '200':
+        description: Signed in
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        accessToken: { type: string }
+                        tokenType: { type: string, example: Bearer }
+                        expiresIn: { type: string, example: 15m }
+                        refreshToken: { type: string, description: mobile/integration clients only }
+                        refreshExpiresAt: { type: string, format: date-time }
+                        user: { $ref: '#/components/schemas/User' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '401': { $ref: '#/components/responses/Unauthorized' }
+      '429': { $ref: '#/components/responses/RateLimited' }
+
+/auth/refresh:
+  post:
+    tags: [Auth]
+    summary: Rotate the refresh token and obtain a new access token
+    description: Web clients send the httpOnly cookie; mobile clients send `refreshToken` in the body. Reusing a rotated token revokes the session.
+    security: []
+    requestBody:
+      content:
+        application/json:
+          schema: { type: object, properties: { refreshToken: { type: string } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '401': { $ref: '#/components/responses/Unauthorized' }
+
+/auth/logout:
+  post:
+    tags: [Auth]
+    summary: Revoke the current session
+    security: []
+    requestBody:
+      content:
+        application/json:
+          schema: { type: object, properties: { refreshToken: { type: string } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/auth/me:
+  get:
+    tags: [Auth]
+    summary: Current user, role and permissions
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '401': { $ref: '#/components/responses/Unauthorized' }
+
+/auth/change-password:
+  post:
+    tags: [Auth]
+    summary: Change password (signs out every session)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [currentPassword, newPassword]
+            properties:
+              currentPassword: { type: string, format: password }
+              newPassword: { type: string, format: password, minLength: 10 }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+
+/auth/sessions:
+  get:
+    tags: [Auth]
+    summary: Active sessions (devices) for the current user
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/auth/sessions/revoke-all:
+  post:
+    tags: [Auth]
+    summary: Sign out of every device
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/dashboard/command-center:
+  get:
+    tags: [Dashboard]
+    summary: Management Command Center (all figures computed live)
+    x-permission: dashboard.view + students.read (group scope needs dashboard.group)
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+      - { name: scope, in: query, schema: { type: string, enum: [campus, group], default: campus } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/students:
+  get:
+    tags: [Students]
+    summary: Student register (scoped to the caller)
+    x-permission: students.read | students.read_assigned
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [name, admissionNo, grade, attendance, average, trend, risk, feeStatus] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: classId, in: query, schema: { type: string, format: uuid } }
+      - { name: sectionId, in: query, schema: { type: string, format: uuid } }
+      - { name: grade, in: query, schema: { type: string, example: Grade 5 } }
+      - { name: risk, in: query, schema: { type: string, enum: [On Track, Watch, Developing Risk, At Risk] } }
+      - { name: feeStatus, in: query, schema: { type: string, enum: [Paid, Partial, Pending, Overdue] } }
+      - { name: today, in: query, schema: { type: string, enum: [present, absent, late, leave, unmarked] } }
+      - { name: house, in: query, schema: { type: string } }
+      - { name: status, in: query, schema: { type: string, enum: [active, alumni, transferred, withdrawn], default: active } }
+    responses:
+      '200':
+        description: Page of students
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - type: object
+                  properties:
+                    data: { type: array, items: { $ref: '#/components/schemas/StudentRow' } }
+                    meta: { $ref: '#/components/schemas/PageMeta' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Students]
+    summary: Create a student (enrolment, guardians, transport, tracking profile)
+    x-permission: students.create
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [firstName, lastName, dateOfBirth, gender, campusId, sectionId]
+            properties:
+              firstName: { type: string }
+              lastName: { type: string }
+              dateOfBirth: { type: string, format: date }
+              gender: { type: string, enum: [M, F, O] }
+              bloodGroup: { type: string }
+              campusId: { type: string, format: uuid }
+              sectionId: { type: string, format: uuid }
+              house: { type: string }
+              address: { type: string }
+              city: { type: string }
+              pincode: { type: string, pattern: '^[0-9]{6}$' }
+              admittedOn: { type: string, format: date }
+              medicalNotes: { type: string }
+              admissionNo: { type: string, pattern: '^HS-\d{4}-\d{4}$' }
+              guardians:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    parentId: { type: string, format: uuid }
+                    fullName: { type: string }
+                    phone: { type: string }
+                    email: { type: string }
+                    relationship: { type: string }
+                    isPrimary: { type: boolean }
+              transport: { type: object, properties: { routeId: { type: string, format: uuid }, stopId: { type: string, format: uuid } } }
+              enableTracking: { type: boolean }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/students/summary:
+  get:
+    tags: [Students]
+    summary: Risk-band counts for the student register
+    x-permission: students.read | students.read_assigned
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/students/{id}:
+  parameters: [{ $ref: '#/components/parameters/StudentIdPath' }]
+  get:
+    tags: [Students]
+    summary: One student (register row)
+    x-permission: students.read | students.read_assigned | parent_portal.use | student_portal.use (scoped)
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  put:
+    tags: [Students]
+    summary: Update a student
+    x-permission: students.update
+    requestBody:
+      content:
+        application/json:
+          schema: { type: object, description: Any subset of the create fields plus status, riskLevel, counsellorId }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  delete:
+    tags: [Students]
+    summary: Archive a student (soft delete; disables tracking)
+    x-permission: students.delete
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/students/{id}/profile:
+  parameters: [{ $ref: '#/components/parameters/StudentIdPath' }]
+  get:
+    tags: [Students]
+    summary: Student 360 — full development record
+    description: Sections the caller may not see (wellbeing notes, fees, tracking, internal staff notes) are omitted. Viewing is audited.
+    x-permission: students.read | students.read_assigned | parent_portal.use | student_portal.use (scoped)
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/students/{id}/behaviour:
+  parameters: [{ $ref: '#/components/parameters/StudentIdPath' }]
+  post:
+    tags: [Students]
+    summary: Record a behaviour note
+    x-permission: students.read | students.read_assigned (scoped)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [recordType, note]
+            properties:
+              recordType: { type: string, enum: [Positive, Note, Concern, Incident] }
+              note: { type: string }
+              recordedOn: { type: string, format: date }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+
+/students/{id}/achievements:
+  parameters: [{ $ref: '#/components/parameters/StudentIdPath' }]
+  post:
+    tags: [Students]
+    summary: Record a verified achievement
+    x-permission: students.read | students.read_assigned (scoped)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, achievementType, achievedOn]
+            properties:
+              title: { type: string }
+              achievementType: { type: string, enum: [Competition, Academic, Co-curricular, Attendance, Sports, Service] }
+              level: { type: string, enum: [School, District, State, National, International] }
+              achievedOn: { type: string, format: date }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+
+/students/{id}/observations:
+  parameters: [{ $ref: '#/components/parameters/StudentIdPath' }]
+  post:
+    tags: [Students]
+    summary: Add a teacher observation
+    x-permission: students.read | students.read_assigned (staff only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, required: [observation], properties: { observation: { type: string } } }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+
+/students/{id}/location:
+  parameters: [{ $ref: '#/components/parameters/StudentIdPath' }]
+  get:
+    tags: [Tracking]
+    summary: Current (or last known) location of a student
+    description: 'School-wide staff: any student. Teachers: assigned classes. Parents: own children. Audited.'
+    x-permission: tracking.read_all | tracking.read_assigned | tracking.read_own_children
+    responses:
+      '200':
+        description: Location
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - type: object
+                  properties: { data: { $ref: '#/components/schemas/CurrentLocation' } }
+      '404': { $ref: '#/components/responses/NotFound' }
+  post:
+    tags: [Tracking]
+    summary: Record a location (GPS device, bus unit, gate or integration)
+    description: Status is classified from campus geofences and the student's stop when omitted. Arrival at / departure from campus notifies guardians.
+    x-permission: tracking.write
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/LocationInput' }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/students/{id}/location/history:
+  parameters: [{ $ref: '#/components/parameters/StudentIdPath' }]
+  get:
+    tags: [Tracking]
+    summary: Location history (oldest first)
+    description: Staff need tracking.history. Parents may view their own child's last 7 days. Times in Asia/Kolkata when `date` is given.
+    x-permission: tracking.history | tracking.read_own_children
+    parameters:
+      - { name: date, in: query, schema: { type: string, format: date } }
+      - { name: from, in: query, description: 'HH:MM with date, or ISO datetime', schema: { type: string } }
+      - { name: to, in: query, description: 'HH:MM with date, or ISO datetime', schema: { type: string } }
+      - { name: limit, in: query, schema: { type: integer, maximum: 2000, default: 500 } }
+    responses:
+      '200':
+        description: History
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - type: object
+                  properties: { data: { $ref: '#/components/schemas/LocationHistory' } }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/tracking/students:
+  get:
+    tags: [Tracking]
+    summary: Tracked students with current location (admin list)
+    x-permission: tracking.read_all | tracking.read_assigned
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [name, grade, status, updated] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: classId, in: query, schema: { type: string, format: uuid } }
+      - { name: sectionId, in: query, schema: { type: string, format: uuid } }
+      - { name: status, in: query, schema: { type: string, enum: [active, paused, offline, disabled] } }
+      - { name: locationStatus, in: query, schema: { type: string, enum: [at_home, in_transit, at_school, on_trip, unknown] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/tracking/map:
+  get:
+    tags: [Tracking]
+    summary: Map markers, campus geofences and summary counts in one call
+    x-permission: tracking.read_all | tracking.read_assigned
+    parameters:
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: classId, in: query, schema: { type: string, format: uuid } }
+      - { name: sectionId, in: query, schema: { type: string, format: uuid } }
+      - { name: status, in: query, schema: { type: string, enum: [active, paused, offline, disabled] } }
+      - { name: locationStatus, in: query, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/tracking/summary:
+  get:
+    tags: [Tracking]
+    summary: Tracking headline counts
+    x-permission: tracking.read_all | tracking.read_assigned
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/tracking/students/{id}/profile:
+  parameters: [{ $ref: '#/components/parameters/StudentIdPath' }]
+  patch:
+    tags: [Tracking]
+    summary: Enable, pause or disable tracking for a student
+    x-permission: tracking.manage
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              trackingEnabled: { type: boolean }
+              trackingStatus: { type: string, enum: [active, paused, offline, disabled] }
+              deviceId: { type: string, nullable: true }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/parents:
+  get:
+    tags: [Parents]
+    summary: Parent directory
+    x-permission: parents.read
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [name, engagement, lastContact] } }
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Parents]
+    summary: Create a parent
+    x-permission: parents.manage
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+
+/parents/me:
+  get:
+    tags: [Parents]
+    summary: The signed-in parent's record and children
+    x-permission: parent_portal.use
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/parents/{id}:
+  parameters: [{ $ref: '#/components/parameters/IdPath' }]
+  get:
+    tags: [Parents]
+    summary: One parent (parents may only read themselves)
+    x-permission: parents.read | parent_portal.use (self)
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  put:
+    tags: [Parents]
+    summary: Update a parent
+    x-permission: parents.manage
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/parents/{id}/children:
+  parameters: [{ $ref: '#/components/parameters/IdPath' }]
+  get:
+    tags: [Parents]
+    summary: A parent's children
+    x-permission: parents.read | parent_portal.use (self)
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/parents/{id}/children/{studentId}/overview:
+  parameters:
+    - $ref: '#/components/parameters/IdPath'
+    - { name: studentId, in: path, required: true, schema: { type: string } }
+  get:
+    tags: [Parents]
+    summary: Parent 360 home for one child (gate, bus, homework, fees, updates, events, pickup)
+    x-permission: parents.read | parent_portal.use (own child)
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/parents/{id}/children/{studentId}/location:
+  parameters:
+    - $ref: '#/components/parameters/IdPath'
+    - { name: studentId, in: path, required: true, schema: { type: string } }
+  get:
+    tags: [Parents, Tracking]
+    summary: Track own child — current location
+    x-permission: tracking.read_own_children (own child with tracking consent) | tracking.read_all
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/parents/{id}/children/{studentId}/location/history:
+  parameters:
+    - $ref: '#/components/parameters/IdPath'
+    - { name: studentId, in: path, required: true, schema: { type: string } }
+  get:
+    tags: [Parents, Tracking]
+    summary: Own child's location history (last 7 days for parents)
+    x-permission: tracking.read_own_children | tracking.history
+    parameters:
+      - { name: date, in: query, schema: { type: string, format: date } }
+      - { name: from, in: query, schema: { type: string } }
+      - { name: to, in: query, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/notifications:
+  get:
+    tags: [Core]
+    summary: My notifications
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: category, in: query, schema: { type: string, enum: [Critical, Attention, Information, Completed] } }
+      - { name: unread, in: query, schema: { type: boolean } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+
+/notifications/counts:
+  get:
+    tags: [Core]
+    summary: Unread / category counts and open tasks (for badges)
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/notifications/{id}/read:
+  parameters: [{ $ref: '#/components/parameters/IdPath' }]
+  patch:
+    tags: [Core]
+    summary: Mark one notification read
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/notifications/read-all:
+  post:
+    tags: [Core]
+    summary: Mark all my notifications read
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/notifications/broadcast:
+  post:
+    tags: [Core]
+    summary: Send an in-app notification (plus queued WhatsApp/SMS/Email/Push) to roles
+    x-permission: notifications.broadcast
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+
+/notification-preferences:
+  get:
+    tags: [Core]
+    summary: My per-topic channel preferences
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+  put:
+    tags: [Core]
+    summary: Save my channel preferences
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/device-tokens:
+  post:
+    tags: [Core]
+    summary: Register a mobile/web push token for the current user
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [platform, token]
+            properties:
+              platform: { type: string, enum: [ios, android, web] }
+              token: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+
+/tasks:
+  get:
+    tags: [Core]
+    summary: Tasks assigned to me or my role
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - { name: status, in: query, schema: { type: string, enum: [open, Pending, Under Review, Completed, Cancelled] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+
+/tasks/{id}:
+  parameters: [{ $ref: '#/components/parameters/IdPath' }]
+  patch:
+    tags: [Core]
+    summary: Update a task's status
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/search:
+  get:
+    tags: [Core]
+    summary: Global search, scoped to what the caller may open
+    parameters:
+      - { name: q, in: query, required: true, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/lookups:
+  get:
+    tags: [Core]
+    summary: Reference data for forms and filters (campuses, years, classes/sections, subjects, routes, staff, roles)
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/documents:
+  post:
+    tags: [Core]
+    summary: Upload a document (PDF/PNG/JPEG/WebP, content-verified)
+    x-permission: documents.manage | students.update | parent_portal.use (own child)
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [file, name]
+            properties:
+              file: { type: string, format: binary }
+              name: { type: string }
+              category: { type: string }
+              studentId: { type: string }
+              documentId: { type: string, format: uuid, description: Fulfil an existing pending request }
+              collection: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+
+/documents/{id}/download:
+  parameters: [{ $ref: '#/components/parameters/IdPath' }]
+  get:
+    tags: [Core]
+    summary: Download a document (authorised, audited)
+    responses:
+      '200': { description: File stream }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/documents/{id}/verify:
+  parameters: [{ $ref: '#/components/parameters/IdPath' }]
+  patch:
+    tags: [Core]
+    summary: Verify or reject a document
+    x-permission: approvals.decide
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/audit-logs:
+  get:
+    tags: [Core]
+    summary: Audit trail (reads of sensitive data are included)
+    x-permission: audit.read
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: module, in: query, schema: { type: string } }
+      - { name: action, in: query, schema: { type: string } }
+      - { name: userId, in: query, schema: { type: string, format: uuid } }
+      - { name: entityId, in: query, schema: { type: string } }
+      - { name: from, in: query, schema: { type: string, format: date } }
+      - { name: to, in: query, schema: { type: string, format: date } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+
+/users:
+  get:
+    tags: [Core]
+    summary: User accounts
+    x-permission: users.manage
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Core]
+    summary: Create a user account
+    x-permission: users.manage
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+
+/users/{id}:
+  parameters: [{ $ref: '#/components/parameters/IdPath' }]
+  patch:
+    tags: [Core]
+    summary: Change role, suspend/reactivate or unlock a user
+    x-permission: users.manage
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/roles:
+  get:
+    tags: [Core]
+    summary: Roles with their permissions, and the permission catalogue
+    x-permission: users.manage | settings.manage
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/roles/{id}/permissions:
+  parameters: [{ $ref: '#/components/parameters/IdPath' }]
+  put:
+    tags: [Core]
+    summary: Replace a role's permissions
+    x-permission: users.manage + settings.manage
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/settings:
+  get:
+    tags: [Core]
+    summary: System settings
+    x-permission: settings.manage
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/settings/{key}:
+  parameters: [{ name: key, in: path, required: true, schema: { type: string } }]
+  put:
+    tags: [Core]
+    summary: Change a system setting
+    x-permission: settings.manage
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }

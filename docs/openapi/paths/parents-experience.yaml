@@ -1,0 +1,727 @@
+# Parent Experience — engagement directory, communication history, conversations,
+# PTM, circulars & acknowledgements, events, and the family (Parent 360) endpoints.
+# Parent records themselves (GET/POST /parents, GET/PUT /parents/{id}, children) are under Parents.
+
+/parent-directory:
+  get:
+    tags: [Parent Experience]
+    summary: Parent directory with engagement, PTM and app filters (teachers see families of their classes)
+    x-permission: parents.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [name, engagement, lastContact, openQueries] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: engagement, in: query, schema: { type: string, enum: [high, medium, low] }, description: 'high ≥ 70, medium 50–69, low < 50' }
+      - { name: ptm, in: query, schema: { type: string, enum: [booked, not_booked] }, description: Has an upcoming PTM booking }
+      - { name: app, in: query, schema: { type: string, enum: ['yes', 'no'] }, description: Has a parent app account }
+      - { name: gradeLevel, in: query, schema: { type: integer, minimum: 1, maximum: 12 } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/parent-directory/summary:
+  get:
+    tags: [Parent Experience]
+    summary: Engagement KPIs (app accounts, high/medium/low, average, PTM booked, contacted in 7 days)
+    x-permission: parents.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/communications:
+  get:
+    tags: [Parent Experience]
+    summary: Unified communication history (WhatsApp, Email, SMS, Call, Note, In-app). Use needsReply=true for the unanswered queue.
+    description: Teachers see their own messages and interactions about families of students in their sections.
+    x-permission: communication.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [occurredAt, channel, parent, status, subject] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: channel, in: query, schema: { type: string, enum: [WhatsApp, Email, SMS, Call, Note, In-app] } }
+      - { name: direction, in: query, schema: { type: string, enum: [inbound, outbound, internal] } }
+      - { name: needsReply, in: query, schema: { type: boolean } }
+      - { name: parentId, in: query, schema: { type: string, format: uuid } }
+      - { name: studentId, in: query, schema: { type: string, format: uuid } }
+      - { name: from, in: query, schema: { type: string, format: date } }
+      - { name: to, in: query, schema: { type: string, format: date } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Parent Experience]
+    summary: Log a phone call or an internal note
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [channel, subject]
+            properties:
+              channel: { type: string, enum: [Call, Note] }
+              parentId: { type: string, format: uuid, description: Required for calls }
+              studentId: { type: string, format: uuid }
+              counterpart: { type: string, description: Name when no parent is linked }
+              subject: { type: string, minLength: 3, maxLength: 160 }
+              body: { type: string, maxLength: 2000 }
+              status: { type: string, enum: [Connected, No answer, Left voicemail, Internal] }
+              direction: { type: string, enum: [inbound, outbound, internal] }
+              needsReply: { type: boolean, default: false }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/communications/summary:
+  get:
+    tags: [Parent Experience]
+    summary: Counts — unanswered, over 24 h, oldest waiting (hours), today, last 30 days by channel, unread conversations
+    x-permission: communication.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/communications/send:
+  post:
+    tags: [Parent Experience]
+    summary: Send a message to a family
+    description: >
+      Records an outbound communications row, creates an in-app notification for the parent's user and queues the
+      external channel in the notification outbox. `replyTo` marks an unanswered message as replied.
+      Families without an app account are recorded with status "No app account" (queued=false).
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [parentId, channel, subject, body]
+            properties:
+              parentId: { type: string, format: uuid }
+              studentId: { type: string, format: uuid }
+              channel: { type: string, enum: [WhatsApp, Email, SMS, In-app] }
+              subject: { type: string, minLength: 3, maxLength: 160 }
+              body: { type: string, minLength: 2, maxLength: 2000 }
+              replyTo: { type: string, format: uuid }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/communications/{id}/replied:
+  post:
+    tags: [Parent Experience]
+    summary: Mark an unanswered message as replied (409 if already replied)
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/communication/threads:
+  get:
+    tags: [Parent Experience]
+    summary: Parent ↔ staff app conversations (teachers — conversations they are in or about their students)
+    x-permission: communication.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: status, in: query, schema: { type: string, enum: [Open, Closed] } }
+      - { name: unread, in: query, schema: { type: boolean } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Parent Experience]
+    summary: Start a conversation with a parent who uses the app
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [parentId, studentId, subject, body]
+            properties:
+              parentId: { type: string, format: uuid }
+              studentId: { type: string, format: uuid }
+              subject: { type: string, minLength: 3, maxLength: 160 }
+              body: { type: string, maxLength: 2000 }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/communication/threads/{id}:
+  get:
+    tags: [Parent Experience]
+    summary: Conversation with messages (marks it read for the caller)
+    x-permission: communication.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/communication/threads/{id}/reply:
+  post:
+    tags: [Parent Experience]
+    summary: Reply in a conversation (clears its unanswered queue item, notifies the family)
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [body], properties: { body: { type: string, maxLength: 2000 } } } } }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/communication/threads/{id}/close:
+  post:
+    tags: [Parent Experience]
+    summary: Close a conversation
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/communication/threads/{id}/reopen:
+  post:
+    tags: [Parent Experience]
+    summary: Reopen a conversation
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/ptm/sessions:
+  get:
+    tags: [Parent Experience]
+    summary: PTM sessions per teacher with booked/free slot counts
+    x-permission: communication.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [date, teacher, subject] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: when, in: query, schema: { type: string, enum: [upcoming, past, all], default: upcoming } }
+      - { name: employeeId, in: query, schema: { type: string, format: uuid } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Parent Experience]
+    summary: Create a PTM session (teachers can only create their own)
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [employeeId, sectionId, subjectLabel, sessionDate, totalSlots]
+            properties:
+              employeeId: { type: string, format: uuid }
+              sectionId: { type: string, format: uuid }
+              subjectLabel: { type: string, example: 'Mathematics · Grade 5A' }
+              sessionDate: { type: string, format: date }
+              startsAt: { type: string, example: '09:00', default: '09:00' }
+              slotMinutes: { type: integer, minimum: 5, maximum: 60, default: 10 }
+              totalSlots: { type: integer, minimum: 1, maximum: 60 }
+              venue: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/ptm/summary:
+  get:
+    tags: [Parent Experience]
+    summary: Upcoming PTM KPIs — slots, booked, unbooked families, families to prioritise
+    x-permission: communication.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/ptm/sessions/{id}:
+  get:
+    tags: [Parent Experience]
+    summary: Session with every slot (time + booking), bookings and unbooked families
+    x-permission: communication.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  patch:
+    tags: [Parent Experience]
+    summary: Change slots, venue, time or date (cannot drop below the highest booked slot — 409)
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              totalSlots: { type: integer }
+              venue: { type: string }
+              startsAt: { type: string }
+              sessionDate: { type: string, format: date }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/ptm/sessions/{id}/notify:
+  post:
+    tags: [Parent Experience]
+    summary: Remind families in the section who have not booked this session
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/ptm/bookings/{id}/status:
+  post:
+    tags: [Parent Experience]
+    summary: Mark a booking Booked, Attended, No-show or Cancelled
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [status], properties: { status: { type: string, enum: [Booked, Attended, Cancelled, No-show] } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/circulars:
+  get:
+    tags: [Parent Experience]
+    summary: Circulars with target count and acknowledgement count (also the operations view /op-circulars)
+    x-permission: communication.read | operations.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [issued, title, status, ack] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [Draft, Under Review, Released, Withdrawn] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Parent Experience]
+    summary: Draft a circular (target_count is computed from the audience)
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, body, audience]
+            properties:
+              title: { type: string, minLength: 3, maxLength: 160 }
+              body: { type: string, minLength: 10, maxLength: 5000 }
+              audience:
+                type: object
+                required: [kind]
+                properties:
+                  kind: { type: string, enum: [all, grades, transport, staff] }
+                  grades: { type: array, items: { type: integer, minimum: 1, maximum: 12 } }
+              campusId: { type: string, format: uuid, nullable: true }
+              requiresAck: { type: boolean, default: true }
+              channels: { type: array, items: { type: string, enum: [whatsapp, sms, email, push] } }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/circulars/summary:
+  get:
+    tags: [Parent Experience]
+    summary: Acknowledgement rate, outstanding, never-acknowledged families, drafts and under-review counts
+    x-permission: communication.read | operations.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/circulars/audience-count:
+  post:
+    tags: [Parent Experience]
+    summary: Preview how many families (or staff accounts) an audience reaches
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [audience], properties: { audience: { type: object }, campusId: { type: string, format: uuid, nullable: true } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/circulars/{id}:
+  get:
+    tags: [Parent Experience]
+    summary: Circular detail
+    x-permission: communication.read | operations.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  put:
+    tags: [Parent Experience]
+    summary: Edit a Draft or Under Review circular (409 once released)
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/circulars/{id}/acknowledgements:
+  get:
+    tags: [Parent Experience]
+    summary: Families in the audience who have (state=acknowledged) or have not (state=pending) acknowledged
+    x-permission: communication.read | operations.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: state, in: query, schema: { type: string, enum: [pending, acknowledged], default: pending } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/circulars/{id}/submit:
+  post:
+    tags: [Parent Experience]
+    summary: Draft → Under Review (notifies approvers)
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '409': { description: Invalid transition }
+
+/circulars/{id}/release:
+  post:
+    tags: [Parent Experience]
+    summary: Under Review → Released; notifies the audience (app + queued channels) and records the broadcast
+    x-permission: approvals.decide
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '409': { description: Invalid transition }
+
+/circulars/{id}/return:
+  post:
+    tags: [Parent Experience]
+    summary: Under Review → Draft (returned for changes; author notified)
+    x-permission: approvals.decide
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/circulars/{id}/withdraw:
+  post:
+    tags: [Parent Experience]
+    summary: Released → Withdrawn
+    x-permission: communication.send + notifications.broadcast
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/circulars/{id}/remind:
+  post:
+    tags: [Parent Experience]
+    summary: Notify families in the audience who have not acknowledged (returns pending / reminded / withoutApp)
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '409': { description: Not a released circular that requires acknowledgement }
+
+/events:
+  get:
+    tags: [Parent Experience]
+    summary: School events (list or calendar range)
+    x-permission: communication.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [date, title, type] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: when, in: query, schema: { type: string, enum: [upcoming, past, all], default: upcoming } }
+      - { name: from, in: query, schema: { type: string, format: date } }
+      - { name: to, in: query, schema: { type: string, format: date } }
+      - { name: status, in: query, schema: { type: string, enum: [Draft, Published, Cancelled] } }
+      - { name: type, in: query, schema: { type: string, enum: [School, Sports, Academic, PTM, Cultural, Holiday] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Parent Experience]
+    summary: Create an event
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, startsOn]
+            properties:
+              title: { type: string }
+              description: { type: string }
+              eventType: { type: string, enum: [School, Sports, Academic, PTM, Cultural, Holiday] }
+              startsOn: { type: string, format: date }
+              endsOn: { type: string, format: date, nullable: true }
+              startsAt: { type: string, example: '10:00', nullable: true }
+              venue: { type: string }
+              audience: { type: object, description: 'Same shape as circulars: {kind, grades}' }
+              campusId: { type: string, format: uuid, nullable: true }
+              status: { type: string, enum: [Draft, Published], default: Published }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+
+/events/summary:
+  get:
+    tags: [Parent Experience]
+    summary: Upcoming, next 30 days, drafts and cancelled counts
+    x-permission: communication.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/events/{id}:
+  get:
+    tags: [Parent Experience]
+    summary: Event detail
+    x-permission: communication.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  put:
+    tags: [Parent Experience]
+    summary: Edit an event (409 once cancelled)
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/events/{id}/cancel:
+  post:
+    tags: [Parent Experience]
+    summary: Cancel an event (notifies the audience when it was published and upcoming)
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/events/{id}/notify:
+  post:
+    tags: [Parent Experience]
+    summary: Notify the event's audience (app + WhatsApp queued)
+    x-permission: communication.send
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/family/circulars:
+  get:
+    tags: [Parent Experience]
+    summary: Released circulars for the signed-in parent's audience, with `acknowledged`
+    description: 'Items: { id, title, body, audience, publishedAt, requiresAck, acknowledged, acknowledgedAt }'
+    x-permission: parent_portal.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/family/circulars/{id}/acknowledge:
+  post:
+    tags: [Parent Experience]
+    summary: Acknowledge a circular (idempotent)
+    x-permission: parent_portal.use
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/family/ptm:
+  get:
+    tags: [Parent Experience]
+    summary: Upcoming PTM sessions for the parent's children
+    description: >
+      Array of { id, teacher, subjectLabel, sectionId, grade, sessionDate, startsAt (HH:MM), slotMinutes, totalSlots, venue,
+      children, booked, freeSlots: number[], freeSlotTimes: [{slotNo, time}], myBooking: {id, slotNo, status, time, studentId, studentName} | null, myBookings }.
+      A child that is not the parent's returns 404.
+    x-permission: parent_portal.use
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: studentId, in: query, schema: { type: string }, description: Student UUID or admission number }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/family/ptm/{sessionId}/book:
+  post:
+    tags: [Parent Experience]
+    summary: Book a free slot for one of the parent's children
+    description: 404 when the child is not the parent's or the session is not for the child's section; 409 when the slot is taken or the child already has a slot in the session.
+    x-permission: parent_portal.use
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [studentId, slotNo]
+            properties:
+              studentId: { type: string, description: UUID or admission number }
+              slotNo: { type: integer, minimum: 1 }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '404': { $ref: '#/components/responses/NotFound' }
+      '409': { description: Slot taken or already booked }
+
+/family/ptm/bookings/{id}/cancel:
+  post:
+    tags: [Parent Experience]
+    summary: Cancel one of the family's upcoming bookings
+    x-permission: parent_portal.use
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/family/events:
+  get:
+    tags: [Parent Experience]
+    summary: Upcoming published events relevant to the parent's children
+    x-permission: parent_portal.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/family/messages:
+  get:
+    tags: [Parent Experience]
+    summary: Conversations the parent participates in
+    description: 'Array of { id, subject, lastMessageAt, status, studentId, studentName, unread, lastMessage, participants, … }'
+    x-permission: parent_portal.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+  post:
+    tags: [Parent Experience]
+    summary: Message the child's class teacher (creates a conversation and notifies the teacher)
+    x-permission: parent_portal.use
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [studentId, subject, body]
+            properties:
+              studentId: { type: string, description: UUID or admission number }
+              subject: { type: string, minLength: 3, maxLength: 160 }
+              body: { type: string, maxLength: 2000 }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '404': { $ref: '#/components/responses/NotFound' }
+      '409': { description: The class teacher has no app account }
+
+/family/messages/{threadId}:
+  get:
+    tags: [Parent Experience]
+    summary: A conversation with its messages (participants only)
+    x-permission: parent_portal.use
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: threadId, in: path, required: true, schema: { type: string, format: uuid } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/family/messages/{threadId}/reply:
+  post:
+    tags: [Parent Experience]
+    summary: Reply in a conversation (409 when closed by the school)
+    x-permission: parent_portal.use
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: threadId, in: path, required: true, schema: { type: string, format: uuid } }
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [body], properties: { body: { type: string, maxLength: 2000 } } } } }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '404': { $ref: '#/components/responses/NotFound' }

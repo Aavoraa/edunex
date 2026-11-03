@@ -1,0 +1,214 @@
+# Group management (multi-campus). All campus measures are computed live.
+/group/dashboard:
+  get:
+    tags: [Group]
+    summary: Group KPIs, per-campus metrics, comparison rows and recent transfers
+    x-permission: dashboard.group
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+/group/comparison:
+  get:
+    tags: [Group]
+    summary: >
+      Eight measures per campus — students, admissions YTD (enquiries Enrolled this calendar year), attendance %,
+      fee collection %, staff filled (active employees ÷ system setting staffing.target), parent engagement,
+      parent NPS (latest campus_survey_metrics) and academic index (latest-term mean) — plus radar series
+    x-permission: group.read
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+/group/campuses:
+  get:
+    tags: [Group]
+    summary: Campuses with live metrics
+    x-permission: group.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/group/campuses/{id}:
+  put:
+    tags: [Group]
+    summary: Edit campus details and its approved staff positions (staffing target)
+    x-permission: group.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: { type: string }
+              shortName: { type: string }
+              place: { type: string }
+              curriculum: { type: string }
+              address: { type: string }
+              established: { type: integer }
+              staffingTarget: { type: integer }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+/group/transfers:
+  get:
+    tags: [Group]
+    summary: Inter-campus transfers (campusId matches source or destination)
+    x-permission: group.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [open, Submitted, Under Review, Approved, Rejected, Completed] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Group]
+    summary: Request a transfer (one open request per student)
+    x-permission: group.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [studentId, toCampusId, reason]
+            properties:
+              studentId: { type: string, description: UUID or admission number }
+              toCampusId: { type: string, format: uuid }
+              reason: { type: string }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '409': { description: Open transfer exists }
+/group/transfers/summary:
+  get:
+    tags: [Group]
+    summary: Transfer counts per status
+    x-permission: group.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+/group/transfers/{id}:
+  get:
+    tags: [Group]
+    summary: Transfer with records checks and destination sections (current year)
+    x-permission: group.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+/group/transfers/{id}/decision:
+  post:
+    tags: [Group]
+    summary: review | approve | reject (note required). Records the decision only — the student is not moved
+    x-permission: group.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [action], properties: { action: { type: string, enum: [review, approve, reject] }, note: { type: string } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+/group/transfers/{id}/complete:
+  post:
+    tags: [Group]
+    summary: Complete an approved transfer — moves the student into a section at the destination campus in one transaction (enrolment, transport cleanup, timeline, audit)
+    x-permission: group.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [sectionId], properties: { sectionId: { type: string, format: uuid }, note: { type: string } } } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '409': { description: Transfer changed concurrently }
+/group/policies:
+  get:
+    tags: [Group]
+    summary: Group policies
+    x-permission: group.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/Sort'
+      - $ref: '#/components/parameters/Dir'
+      - { name: status, in: query, schema: { type: string, enum: [Draft, Under review, Active, Retired] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Group]
+    summary: Create a policy
+    x-permission: group.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, version]
+            properties:
+              name: { type: string }
+              scope: { type: string, default: All campuses }
+              version: { type: string, example: v1.0 }
+              body: { type: string }
+              status: { type: string, enum: [Draft, Under review, Active, Retired] }
+              effectiveOn: { type: string, format: date }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '409': { description: Name already used }
+/group/policies/{id}:
+  get:
+    tags: [Group]
+    summary: Policy with version history
+    x-permission: group.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  put:
+    tags: [Group]
+    summary: Update a policy. Changing text or scope requires a later version; the previous version is archived
+    x-permission: group.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: { type: string }
+              scope: { type: string }
+              version: { type: string }
+              body: { type: string }
+              status: { type: string }
+              effectiveOn: { type: string, format: date }
+              changeNote: { type: string }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+  delete:
+    tags: [Group]
+    summary: Delete a Draft policy, otherwise retire it
+    x-permission: group.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }

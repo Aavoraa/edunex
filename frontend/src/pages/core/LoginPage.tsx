@@ -1,0 +1,265 @@
+import { useEffect, useState, type FormEvent } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { api, ApiError } from '@/api/client';
+import { useAuth } from '@/auth/AuthContext';
+import { useI18n } from '@/i18n/I18nProvider';
+import { BrandDivider, Button, Icon, BrandMark, Modal, Svg, useToast, CAMPUS_PHOTO } from '@/components/ui';
+import { fmt } from '@/lib/format';
+
+interface PublicConfig {
+  campuses: { code: string; name: string; shortName: string; place: string }[];
+  academicYear: string | null;
+  settings: Record<string, unknown>;
+  stats: { students: number; staff: number; campuses: number };
+  environment: string;
+}
+
+const MASCOT = `<svg width="58" height="58" viewBox="0 0 64 64" role="img" aria-label="AI campus assistant">
+<ellipse cx="32" cy="59" rx="16" ry="3.4" fill="#0D2B45" opacity=".16"/>
+<rect x="19" y="33" width="26" height="22" rx="9" fill="#F2F6FA" stroke="#C5D6E4" stroke-width="1.5"/>
+<rect x="27" y="41" width="10" height="9" rx="3" fill="#E1ECF4"/>
+<rect x="11" y="36" width="8" height="15" rx="4" fill="#E7EFF6" stroke="#C5D6E4" stroke-width="1.2"/>
+<rect x="45" y="36" width="8" height="15" rx="4" fill="#E7EFF6" stroke="#C5D6E4" stroke-width="1.2"/>
+<rect x="15" y="12" width="34" height="24" rx="11" fill="#FBFDFF" stroke="#C5D6E4" stroke-width="1.6"/>
+<rect x="19" y="17" width="26" height="14" rx="7" fill="#0D2B45"/>
+<circle cx="27" cy="24" r="3.4" fill="#4FD1E8"/><circle cx="37" cy="24" r="3.4" fill="#4FD1E8"/>
+<circle cx="28.2" cy="22.8" r="1.1" fill="#fff"/><circle cx="38.2" cy="22.8" r="1.1" fill="#fff"/>
+<rect x="30.4" y="5" width="3.2" height="7" rx="1.6" fill="#B87008"/><circle cx="32" cy="4" r="3" fill="#E8B765"/>
+<circle cx="32" cy="46" r="2.2" fill="#4FD1E8" opacity=".8"/></svg>`;
+
+const CAMPUS_KEY = 'hs.loginCampus';
+
+export default function LoginPage() {
+  const { login } = useAuth();
+  const { t, langs, lang, setLang } = useI18n();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const toast = useToast();
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [campusOpen, setCampusOpen] = useState(false);
+  const [campusCode, setCampusCode] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(CAMPUS_KEY);
+    } catch {
+      return null;
+    }
+  });
+
+  const config = useQuery({ queryKey: ['public-config'], queryFn: () => api.get<PublicConfig>('/public/config'), staleTime: 5 * 60_000 });
+  const campuses = config.data?.campuses ?? [];
+  const campus = campuses.find((c) => c.code === campusCode) ?? campuses[0];
+
+  const chooseCampus = (code: string) => {
+    setCampusCode(code);
+    setCampusOpen(false);
+    try {
+      localStorage.setItem(CAMPUS_KEY, code);
+    } catch {
+      /* private mode: the choice simply isn't remembered */
+    }
+  };
+
+  useEffect(() => {
+    document.title = 'Sign in — Edunex Smart School 360';
+  }, []);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!identifier.trim() || !password) {
+      setError('Enter your email or mobile number and your password.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const user = await login(identifier.trim(), password);
+      // Hand the chosen campus to the header context; users tied to one campus keep their own.
+      if (campus) {
+        try {
+          const ctx = JSON.parse(localStorage.getItem('hs.context') ?? '{}');
+          localStorage.setItem('hs.context', JSON.stringify({ ...ctx, campusCode: campus.code }));
+        } catch {
+          /* private mode: the header falls back to the user's own campus */
+        }
+      }
+      toast(`Welcome, ${user.fullName}`, 'success', 'check');
+      const from = (location.state as { from?: string } | null)?.from;
+      navigate(from && from !== '/login' ? from : user.role.homeRoute, { replace: true });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Sign-in failed. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const stats = config.data?.stats;
+
+  return (
+    <section className="home" aria-label="Edunex Smart School 360 — welcome and sign in">
+      <div className="home__photo" style={{ backgroundImage: `url(${CAMPUS_PHOTO})` }} aria-hidden="true" />
+      <header className="home__nav">
+        <div className="home__brand">
+          <BrandMark size={46} />
+          <span className="col">
+            <span className="home__brandname">Edunex</span>
+            <span className="home__brandtag">International School</span>
+          </span>
+        </div>
+        <nav className="home__links">
+          {['Learn', 'Grow', 'Belong', 'Lead'].map((l, i) => (
+            <span key={l} style={{ display: 'contents' }}>
+              {i > 0 && <span className="navlink__sep">|</span>}
+              <button className="navlink" onClick={() => setInfo(`${l} — the public website section lives on the school website.`)}>{l}</button>
+            </span>
+          ))}
+        </nav>
+        <div className="spacer" />
+        <div className="langpill">
+          {langs.map((l) => (
+            <button key={l.id} aria-pressed={lang === l.id} onClick={() => setLang(l.id)}>{l.label}</button>
+          ))}
+        </div>
+      </header>
+
+      <p className="script script--tr">A Brighter Tomorrow<br />Begins Here</p>
+      <p className="script script--br">Growing Minds.<br />Inspiring Futures.</p>
+
+      <div className="home__body">
+        <div className="home__left">
+          <div className="herofallback">
+            <p className="hero__eyebrow">A Brighter Tomorrow Begins Here</p>
+            <h1 className="hero__title">Edunex International.<em>Growing Minds. Inspiring Futures.</em></h1>
+            <p className="hero__lede">Admissions, academics, parents, safety, finance, workforce and intelligence — connected around every student.</p>
+            <div className="statsbar">
+              {[
+                ['users', stats ? `${fmt.n(stats.students)}` : '—', 'Students'],
+                ['graduation', stats ? `${fmt.n(stats.staff)}` : '—', 'Staff'],
+                ['building', stats ? String(stats.campuses) : '—', 'Campuses'],
+                ['globe', 'Cambridge', 'Primary to A Level'],
+              ].map(([ico, v, l]) => (
+                <span className="stat" key={l}>
+                  <span className="stat__ico"><Icon name={ico} size={20} /></span>
+                  <span className="col"><span className="stat__value">{v}</span><span className="stat__label">{l}</span></span>
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="row wrap g-3 mt-4" style={{ padding: '0 var(--s-2)' }}>
+            <span className="t-micro t-bold" style={{ color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '.14em' }}>Brand Values:</span>
+            {[['book', 'Educational'], ['brand', 'Elegant'], ['sparkle', 'Inspiring'], ['trending', 'Modern'], ['shieldCheck', 'Trustworthy']].map(([i, l]) => (
+              <span key={l} className="badge" style={{ background: 'rgba(255,255,255,.1)', borderColor: 'rgba(121, 243, 229,.3)', color: '#FFF' }}>
+                <Icon name={i} size={13} />{l}
+              </span>
+            ))}
+            <span className="script-font" style={{ color: 'var(--gold)', fontSize: 18, marginLeft: 'auto' }}>Learning Beyond Limits</span>
+          </div>
+        </div>
+
+        <div className="home__right">
+          <form className="logincard" onSubmit={submit} noValidate>
+            <div className="row between">
+              <div>
+                <p className="logincard__welcome">Welcome to</p>
+                <h2 className="logincard__title">Edunex International</h2>
+                <p className="logincard__sub">Smart School 360 · Connected Digital Campus</p>
+              </div>
+              <BrandMark size={42} />
+            </div>
+            <BrandDivider />
+            <button type="button" className="ctxrow" aria-haspopup="dialog" onClick={() => setCampusOpen(true)}>
+              <Icon name="building" size={17} />
+              <span className="ctxrow__text grow">Academic Year {config.data?.academicYear ?? '—'} &nbsp;|&nbsp; <b>{campus?.name ?? 'Edunex International'}</b></span>
+              <Icon name="chevronDown" size={15} />
+            </button>
+
+            <div className="col g-3 mt-4">
+              <div className="ifield">
+                <span className="ifield__ico"><Icon name="mail" size={17} /></span>
+                <input className="input" type="text" name="username" autoComplete="username" aria-label="Email or mobile number"
+                  placeholder="Email or mobile number" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required />
+              </div>
+              <div className="ifield">
+                <span className="ifield__ico"><Icon name="lock" size={17} /></span>
+                <input className="input" type={showPw ? 'text' : 'password'} name="password" autoComplete="current-password" aria-label="Password"
+                  placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <button type="button" className="iconbtn ifield__eye" aria-label={showPw ? 'Hide password' : 'Show password'} onClick={() => setShowPw((s) => !s)}>
+                  <Icon name="eye" size={17} />
+                </button>
+              </div>
+              <div className="row between wrap g-2">
+                <label className="check"><input type="checkbox" defaultChecked /> Remember me on this device</label>
+                <button type="button" className="t-sm" style={{ color: 'var(--magenta)' }}
+                  onClick={() => setInfo('Password reset: contact the school office, who can verify your identity and issue a reset. Self-service reset activates once an email/SMS provider is configured.')}>
+                  Forgot password?
+                </button>
+              </div>
+              {error && (
+                <div className="banner banner--critical login-error" role="alert">
+                  <Icon name="alert" size={17} />
+                  <div className="grow">{error}</div>
+                </div>
+              )}
+              <Button type="submit" variant="primary" block iconRight="arrowRight" loading={busy} className="logincard__btn">
+                Sign in to Campus
+              </Button>
+            </div>
+
+            <p className="t-micro t-muted t-center mt-4">Your role is recognised from your sign-in; you go straight to your own workspace.</p>
+            <p className="t-sm t-center mt-2"><Link to="/track-application" style={{ color: 'var(--magenta)' }}>Applied for admission? Track your application</Link></p>
+          </form>
+
+          <div className="aicard">
+            <Svg html={MASCOT} />
+            <div className="grow">
+              <div className="aicard__title">Need help entering the campus?</div>
+              <div className="aicard__text">Ask our AI Campus Assistant</div>
+              <div className="aicard__actions">
+                <Button variant="primary" size="sm" icon="sparkle" onClick={() => setInfo('The AI Campus Assistant answers from approved school documents once you sign in.')}>Ask AI</Button>
+                <Button size="sm" icon="phone" onClick={() => setInfo('Edunex International School front office — available Monday to Saturday, 8:00 am to 5:00 pm.')}>Contact School</Button>
+                <Button size="sm" icon="helpCircle" onClick={() => setInfo('Sign in with the email or mobile number registered with the school. Parents see only their own children; staff see the modules their role allows.')}>{t('Help')}</Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="row center">
+            <span className="illustrative" style={{ background: 'rgba(255,255,255,.14)', color: '#E7E8F9' }}>
+              <Icon name="brand" size={14} />Edunex International School · Growing Minds. Inspiring Futures.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <Modal open={!!info} onClose={() => setInfo(null)} title="Edunex Smart School 360" foot={<Button variant="primary" onClick={() => setInfo(null)}>Understood</Button>}>
+        <p className="t-sm">{info}</p>
+      </Modal>
+
+      <Modal open={campusOpen} onClose={() => setCampusOpen(false)} title="Choose your campus"
+        sub={`Academic year ${config.data?.academicYear ?? '—'}. Staff tied to one campus always open their own.`}
+        foot={<Button onClick={() => setCampusOpen(false)}>Close</Button>}>
+        <div className="col g-2">
+          {campuses.length === 0 && <p className="t-sm t-muted">Campuses are loading…</p>}
+          {campuses.map((c) => {
+            const on = c.code === campus?.code;
+            return (
+              <button type="button" key={c.code} className="optioncard" aria-pressed={on} onClick={() => chooseCampus(c.code)}>
+                <span className={`avatar ${on ? 'avatar--amber' : ''}`}><Icon name="building" size={18} /></span>
+                <span className="col grow">
+                  <span className="t-sm t-bold">{c.name}</span>
+                  <span className="t-xs t-muted">{c.place}</span>
+                </span>
+                {on ? <Icon name="check" size={16} /> : <Icon name="chevronRight" size={16} />}
+              </button>
+            );
+          })}
+        </div>
+      </Modal>
+
+    </section>
+  );
+}

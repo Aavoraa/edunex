@@ -1,0 +1,134 @@
+/* ==========================================================================
+   EDUNEX SMART SCHOOL 360 — DESIGN TOKENS
+   Single source of truth for colour, type, space, radius, elevation, motion.
+   ========================================================================== */
+
+:root {
+  /* ---- Brand Guidelines (Edunex International School) ---- */
+  --magenta:         #3B3FD9;   /* Edunex Indigo (Primary) */
+  --magenta-deep:    #1E1B4B;   /* Midnight for sidebar / dark shell */
+  --magenta-dark:    #25216A;
+  --magenta-light:   #2F32B8;   /* Deep Indigo (hover) */
+  --magenta-tint:    #EEF0FF;   /* Soft lavender tint */
+  --magenta-line:    #CDD2FA;
+
+  --gold:            #2DD4BF;   /* Edunex Teal */
+  --gold-hover:      #14B8A6;
+  --gold-deep:       #0F766E;   /* Accessible teal text */
+  --gold-tint:       #E6FAF7;
+  --gold-line:       #99E2D8;
+
+  --charcoal:        #171717;   /* Charcoal Black */
+  --charcoal-light:  #2C2C2C;
+  --charcoal-muted:  #5C5C5C;
+  --charcoal-faint:  #858585;
+
+  /* ---- Backward-compatible Aliases for System Components ---- */
+  --navy:            var(--magenta);
+  --navy-light:      var(--magenta-light);
+  --navy-deep:       var(--magenta-deep);
+  --amber:           #C27E0A;
+  --amber-hover:     #A56A04;
+  --teal:            #0D7B66;
+  --teal-hover:      #096150;
+
+  /* ---- Surfaces ------------------------------------------------------- */
+  --bg:              #F6F7FB;   /* Cool white ground */
+  --bg-sunken:       #EDEFF6;
+  --surface:         #FFFFFF;
+  --surface-alt:     #F9FAFD;
+  --surface-navy:    #1E1B4B;   /* Midnight indigo for sidebar */
+  --surface-brand:   #3B3FD9;
+  --overlay:         rgba(12, 12, 21, .65);
+
+  /* ---- Text ----------------------------------------------------------- */
+  --text:            #2C2C2C;   /* Charcoal body text */
+  --text-strong:     #171717;   /* Charcoal Black headings */
+  --text-muted:      #666666;   /* Labels, meta */
+  --text-faint:      #8E8E8E;   /* Decorative / disabled */
+  --text-invert:     #FFFFFF;
+  --text-on-navy:    #E6E8FF;   /* Lavender-white on midnight */
+
+  /* ---- Lines ---------------------------------------------------------- */
+  --border:          #E5E8F0;
+  --border-strong:   #CBD0DD;
+  --border-soft:     #EFF1F7;
+  --border-navy:     rgba(255, 255, 255, .14);
+  --border-gold:     rgba(45, 212, 191, .45);
+
+  /* ---- Status (semantic) ---------------------------------------------- */
+  --critical:        #C2273B;  --critical-tint: #FDF0F2;  --critical-line: #F9CAD2;
+  --warning:         #C27E0A;  --warning-tint:  #FEF7EA;  --warning-line:  #F7DDB2;
+  --caution:         #9E7B06;  --caution-tint:  #FAF6E2;  --caution-line:  #ECE1B0;
+  --info:            #3B3FD9;  --info-tint:     #EEF0FF;  --info-line:     #CDD2FA;
+  --success:         #158055;  --success-tint:  #E8F7F0;  --success-line:  #B9E6D1;
+  --neutral:         #666666;  --neutral-tint:  #EBEDF5;  --neutral-line:  #CACDDD;
+
+  /* ---- Data-viz series (accessible, brand-derived) -------------------- */
+  --viz-1: #3B3FD9;
+  --viz-2: #14B8A6;
+  --viz-3: #D48E0B;
+  --viz-4: #158055;
+  --viz-5: #742588;
+  --viz-6: #C2273B;
+  --viz-7: #7C83F0;
+  --viz-8: #383838;
+  --viz-grid: #E1E3EF;
+  --viz-axis: #ABAFC2;
+
+  /* ---- Typography (Brand Guidelines: Cinzel + Montserrat) ------------- */
+  --font-display: "Cinzel", "Playfair Display", "Times New Roman", serif;
+  --font-ui: "Montserrat", "Noto Sans Devanagari", "Noto Sans Tamil", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-script: "Caveat", cursive;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  --fs-display: 32px;
+  --fs-h1:      24px;
+  --fs-h2:      19px;
+  --fs-h3:      16px;
+  --fs-body:    14px;
+  --fs-sm:      13px;
+  --fs-xs:      12px;
+  --fs-micro:   11px;
+
+  --lh-tight: 1.2;
+  --lh-snug:  1.35;
+  --lh-body:  1.55;
+
+  --track-caps: .08em;
+
+  /* ---- Space (4pt grid) ----------------------------------------------- */
+  --s-1: 4px;   --s-2: 8px;   --s-3: 12px;  --s-4: 16px;
+  --s-5: 20px;  --s-6: 24px;  --s-7: 32px;  --s-8: 40px;
+  --s-9: 48px;  --s-10: 64px;
+
+  /* ---- Radius --------------------------------------------------------- */
+  --r-sm: 6px;  --r-md: 10px;  --r-lg: 14px;  --r-xl: 20px;  --r-pill: 999px;
+
+  /* ---- Elevation ------------------------------------------------------ */
+  --sh-1: 0 1px 3px rgba(9, 10, 53,.06);
+  --sh-2: 0 2px 6px rgba(9, 10, 53,.07), 0 8px 20px -8px rgba(9, 10, 53,.15);
+  --sh-3: 0 4px 12px rgba(9, 10, 53,.08), 0 20px 42px -12px rgba(9, 10, 53,.22);
+  --sh-4: 0 32px 75px -20px rgba(6, 7, 39,.45);
+  --sh-gold: 0 4px 14px rgba(121, 243, 229,.35);
+  --sh-focus: 0 0 0 3px rgba(25, 29, 154,.32);
+
+  /* ---- Layout --------------------------------------------------------- */
+  --sidebar-w: 276px;
+  --sidebar-w-collapsed: 72px;
+  --topbar-h: 62px;
+  --content-max: 1560px;
+
+  /* ---- Motion --------------------------------------------------------- */
+  --t-fast: 140ms cubic-bezier(.4,0,.2,1);
+  --t-base: 220ms cubic-bezier(.4,0,.2,1);
+  --t-slow: 340ms cubic-bezier(.22,1,.36,1);
+
+  /* ---- Z-index scale (10 / 20 / 30 / 50) ------------------------------ */
+  --z-base: 1;
+  --z-sticky: 10;
+  --z-nav: 20;
+  --z-overlay: 30;
+  --z-modal: 50;
+  --z-toast: 60;
+}

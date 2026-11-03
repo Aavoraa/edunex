@@ -1,0 +1,227 @@
+/* ==========================================================================
+   HOME — the public landing and sign-in screen.
+   A marketing hero on the left, the sign-in card on the right, over an
+   illustrated campus scene. Photography is represented by artwork: see
+   README for where to drop real images in.
+   ========================================================================== */
+
+:root {
+  --role-mgmt:    #B87A04;  --role-mgmt-tint:    #FFF8E6;  --role-mgmt-line:    #79F3E5;
+  --role-teacher: #151984;  --role-teacher-tint: #F2F2FD;  --role-teacher-line: #CFD0F1;
+  --role-parent:  #191D9A;  --role-parent-tint:  #EBEBFA;  --role-parent-line:  #BCBEEB;
+  --role-office:  #6B2382;  --role-office-tint:  #F8ECFC;  --role-office-line:  #E2BEEC;
+  --role-staff:   #158055;  --role-staff-tint:   #EAF8F1;  --role-staff-line:   #BEE5D3;
+  --glass: rgba(255,255,255,.14);
+  --glass-line: rgba(121, 243, 229,.35);
+}
+
+.home {
+  position: relative; min-height: 100vh; min-height: 100dvh;
+  display: flex; flex-direction: column;
+  background: linear-gradient(135deg, #050621 0%, #0B0D42 35%, #0F125C 65%, #070829 100%);
+  color: #fff; overflow: hidden;
+}
+.home[hidden] { display: none; }
+
+/* Atmosphere: soft teal radiance from the right, deep indigo depth bottom-left */
+.home::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(900px 620px at 88% 6%, rgba(121, 243, 229,.25), transparent 60%),
+    radial-gradient(700px 520px at 12% 96%, rgba(25, 29, 154,.3), transparent 62%),
+    radial-gradient(1100px 700px at 50% 120%, rgba(3, 3, 17,.7), transparent 70%);
+}
+
+/* ---- Top bar ------------------------------------------------------------ */
+.home__nav {
+  position: relative; z-index: 3; flex: none;
+  display: flex; align-items: center; gap: var(--s-6);
+  padding: var(--s-5) var(--s-7);
+}
+.home__brand { display: flex; align-items: center; gap: var(--s-3); }
+.home__brandname { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: #fff; line-height: 1.1; letter-spacing: .03em; }
+.home__brandtag { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); margin-top: 2px; font-weight: 600; }
+
+.home__links { display: flex; align-items: center; gap: var(--s-2); margin-left: var(--s-6); }
+.navlink {
+  padding: 6px 14px; border-radius: var(--r-sm);
+  font-size: var(--fs-xs); font-weight: 600; letter-spacing: .13em; text-transform: uppercase;
+  color: #DCDCF3; transition: color var(--t-fast), background var(--t-fast);
+}
+.navlink:hover { color: var(--gold); background: rgba(255,255,255,.1); }
+.navlink__sep { color: rgba(121, 243, 229,.35); font-size: 12px; }
+
+.langpill { display: inline-flex; background: rgba(255,255,255,.12); border: 1px solid var(--glass-line); border-radius: var(--r-pill); padding: 3px; gap: 2px; }
+.langpill button {
+  height: 30px; padding: 0 16px; border-radius: var(--r-pill);
+  font-size: var(--fs-xs); font-weight: 600; color: #E7E8F9; transition: all var(--t-fast);
+}
+.langpill button:hover { color: #fff; }
+.langpill button[aria-pressed="true"] { background: var(--gold); color: #171717; font-weight: 700; }
+
+/* ---- Handwritten accents ------------------------------------------------ */
+.script {
+  display: none; position: absolute; z-index: 2; pointer-events: none;
+  font-family: var(--font-script);
+  font-size: 28px; line-height: 1.15; color: var(--gold);
+  text-shadow: 0 2px 14px rgba(4, 4, 21,.7);
+}
+.script::after {
+  content: ""; display: block; width: 62px; height: 2px; margin-top: 8px;
+  background: linear-gradient(90deg, var(--gold), transparent);
+  border-radius: 2px;
+}
+.script--tr { top: 92px; right: 14px; text-align: right; width: 140px; }
+.script--tr::after { margin-left: auto; background: linear-gradient(270deg, var(--gold), transparent); }
+.script--br { bottom: 40px; right: 14px; text-align: right; width: 140px; }
+.script--br::after { margin-left: auto; background: linear-gradient(270deg, var(--gold), transparent); }
+
+/* ---- Main grid ---------------------------------------------------------- */
+.home__body {
+  position: relative; z-index: 2; flex: 1;
+  display: grid; grid-template-columns: minmax(0,1fr) 452px;
+  gap: var(--s-7); align-items: start;
+  padding: 0 var(--s-7) var(--s-5);
+}
+
+/* ---- Hero --------------------------------------------------------------- */
+.hero__eyebrow { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--gold); }
+.hero__title {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(38px, 4.2vw, 60px); line-height: 1.08; letter-spacing: .02em;
+  color: #fff; margin-top: var(--s-4);
+}
+.hero__title em { font-style: normal; color: var(--gold); display: block; }
+.hero__lede { margin-top: var(--s-5); font-size: 16px; line-height: 1.65; color: #D7D8F0; max-width: 44ch; }
+
+
+/* ---- Text hero ---- */
+.home__left { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.herofallback { display: block; max-width: 640px; align-self: center; }
+
+/* ---- Stats bar ---------------------------------------------------------- */
+.statsbar {
+  margin-top: var(--s-5); display: flex; align-items: center; gap: var(--s-6); flex-wrap: wrap;
+  padding: var(--s-4) var(--s-5); border-radius: var(--r-lg);
+  background: rgba(255,255,255,.10); border: 1px solid rgba(121, 243, 229,.25);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.stat { display: flex; align-items: center; gap: var(--s-3); }
+.stat__ico { color: var(--gold); flex: none; }
+.stat__value { font-size: 19px; font-weight: 700; color: #fff; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat__label { font-size: var(--fs-micro); color: #D7D8F0; margin-top: 1px; }
+
+/* ---- Sign-in card ------------------------------------------------------- */
+.home__right { display: flex; flex-direction: column; gap: var(--s-4); }
+.logincard {
+  background: rgba(255,255,255,.98); border-radius: var(--r-xl);
+  box-shadow: 0 32px 75px -20px rgba(3, 3, 17,.65); padding: var(--s-6);
+  color: var(--text); border: 1px solid rgba(121, 243, 229,.4);
+}
+.logincard__welcome { font-size: var(--fs-sm); color: var(--text-muted); }
+.logincard__title { font-family: var(--font-display); font-size: 24px; font-weight: 700; letter-spacing: .02em; color: var(--magenta); line-height: 1.15; margin-top: 2px; }
+.logincard__sub { font-size: var(--fs-sm); color: var(--text-muted); margin-top: 6px; }
+
+.ctxrow {
+  display: flex; align-items: center; gap: var(--s-3); width: 100%; text-align: left;
+  height: 46px; padding: 0 var(--s-3); margin-top: var(--s-5);
+  border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-alt);
+  transition: border-color var(--t-fast);
+}
+.ctxrow:hover { border-color: var(--magenta-line); }
+.ctxrow__text { font-size: var(--fs-sm); color: var(--text); }
+.ctxrow__text b { font-weight: 600; color: var(--magenta); }
+
+.ifield { position: relative; }
+.ifield__ico { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-faint); pointer-events: none; }
+.ifield .input { height: 46px; padding-left: 42px; border-radius: var(--r-md); }
+.ifield .input:focus { border-color: var(--magenta); }
+.ifield__eye { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); }
+
+.logincard__btn { height: 48px; border-radius: var(--r-md); font-size: var(--fs-body); font-weight: 600; background: var(--magenta); }
+.logincard__btn:hover { background: var(--magenta-light); }
+
+.orline { display: flex; align-items: center; gap: var(--s-3); font-size: var(--fs-xs); color: var(--text-muted); }
+.orline::before, .orline::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+/* ---- Role tiles --------------------------------------------------------- */
+.roletiles { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: var(--s-2); }
+.roletile {
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: 11px 4px; border-radius: var(--r-md);
+  border: 1px solid var(--border); background: var(--surface);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast), background var(--t-fast);
+}
+.roletile:hover { box-shadow: var(--sh-2); border-color: var(--magenta-line); }
+.roletile__ico { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; }
+.roletile__label { font-size: 10px; font-weight: 600; color: var(--text); text-align: center; line-height: 1.15; }
+.roletile[aria-pressed="true"] { box-shadow: var(--sh-2); }
+.roletile[data-role="management"] { border-color: var(--role-mgmt-line); }
+.roletile[data-role="management"] .roletile__ico { background: var(--role-mgmt-tint); color: var(--role-mgmt); }
+.roletile[data-role="management"][aria-pressed="true"] { background: var(--role-mgmt-tint); border-color: var(--role-mgmt); }
+.roletile[data-role="teacher"] { border-color: var(--role-teacher-line); }
+.roletile[data-role="teacher"] .roletile__ico { background: var(--role-teacher-tint); color: var(--role-teacher); }
+.roletile[data-role="teacher"][aria-pressed="true"] { background: var(--role-teacher-tint); border-color: var(--role-teacher); }
+.roletile[data-role="parent"] { border-color: var(--role-parent-line); }
+.roletile[data-role="parent"] .roletile__ico { background: var(--role-parent-tint); color: var(--role-parent); }
+.roletile[data-role="parent"][aria-pressed="true"] { background: var(--role-parent-tint); border-color: var(--role-parent); }
+.roletile[data-role="office"] { border-color: var(--role-office-line); }
+.roletile[data-role="office"] .roletile__ico { background: var(--role-office-tint); color: var(--role-office); }
+.roletile[data-role="office"][aria-pressed="true"] { background: var(--role-office-tint); border-color: var(--role-office); }
+.roletile[data-role="staff"] { border-color: var(--role-staff-line); }
+.roletile[data-role="staff"] .roletile__ico { background: var(--role-staff-tint); color: var(--role-staff); }
+.roletile[data-role="staff"][aria-pressed="true"] { background: var(--role-staff-tint); border-color: var(--role-staff); }
+
+/* ---- AI assistant card -------------------------------------------------- */
+.aicard {
+  display: flex; align-items: center; gap: var(--s-4);
+  padding: var(--s-4); border-radius: var(--r-lg);
+  background: rgba(247, 247, 254,.96); border: 1px solid rgba(121, 243, 229,.4);
+  box-shadow: 0 18px 44px -20px rgba(4, 4, 21,.55);
+}
+.aicard__title { font-size: var(--fs-sm); font-weight: 700; color: var(--text-strong); }
+.aicard__text { font-size: var(--fs-xs); color: var(--text-muted); margin-top: 2px; }
+.aicard__actions { display: flex; gap: var(--s-2); margin-top: var(--s-3); flex-wrap: wrap; }
+
+/* The gutter only exists when there is room for it */
+@media (min-width: 1360px) {
+  .home__nav, .home__body { padding-right: 124px; }
+  .script { display: block; font-size: 21px; }
+}
+
+/* ---- Responsive --------------------------------------------------------- */
+@media (max-width: 1240px) {
+  .home__body { grid-template-columns: minmax(0,1fr) 400px; gap: var(--s-5); padding: 0 var(--s-5) var(--s-5); }
+  .home__nav { padding: var(--s-4) var(--s-5); }
+  .script { font-size: 22px; }
+}
+
+@media (max-width: 1024px) {
+  .home__body { grid-template-columns: minmax(0,1fr); }
+  .home__right { order: -1; max-width: 452px; width: 100%; }
+  .script { display: none; }
+  .home__links { display: none; }
+}
+
+@media (max-width: 767px) {
+  .home__nav { padding: var(--s-4); gap: var(--s-3); }
+  .home__brandname { font-size: 18px; }
+  .home__body { padding: 0 var(--s-4) var(--s-5); gap: var(--s-4); }
+  .hero__title { font-size: 32px; }
+  .hero__lede { font-size: 15px; }
+  .logincard { padding: var(--s-5); }
+  .roletiles { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .statsbar { gap: var(--s-4); padding: var(--s-4); }
+  .aicard { flex-direction: column; text-align: center; }
+}
+
+/* Short windows: trim the marketing furniture before the form */
+@media (max-height: 820px) and (min-width: 1025px) {
+  .logincard { padding: var(--s-5); }
+  .ifield .input, .ctxrow { height: 42px; }
+  .logincard__btn { height: 44px; }
+  .home__nav { padding: var(--s-4) var(--s-7); }
+}
+@media (max-height: 700px) and (min-width: 1025px) {
+  .logincard__sub { display: none; }
+}

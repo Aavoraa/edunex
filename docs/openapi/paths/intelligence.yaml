@@ -1,0 +1,615 @@
+# Intelligence — Early Warning (/early-warning), Talent Discovery (/talent), Behaviour &
+# Wellbeing (/wellbeing), Student Portfolio (/portfolio), AI Teacher Co-Pilot (/copilot),
+# School Knowledge AI (/knowledge-ai), Analytics (/analytics) and Reports (/reports).
+#
+# Every student list honours the caller's data scope (teachers see only their sections);
+# records outside scope return 404. No language model is configured: Co-Pilot drafts come
+# from a deterministic template provider (select with env AI_PROVIDER; only `template`
+# exists today) and Knowledge AI answers are extracted from approved documents only.
+# CSV exports return `text/csv` with a Content-Disposition attachment and are audited.
+
+/early-warning/summary:
+  get:
+    tags: [Intelligence]
+    summary: Risk bands, signal-to-closure stage counts and thresholds (scoped)
+    x-permission: earlywarning.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/early-warning/students:
+  get:
+    tags: [Intelligence]
+    summary: Early Warning student table (On Track hidden unless requested)
+    x-permission: earlywarning.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [name, grade, attendance, trend, average, risk, intervention, owner] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: grade, in: query, schema: { type: string, example: Grade 5 } }
+      - { name: risk, in: query, schema: { type: string, enum: [On Track, Watch, Developing Risk, At Risk] } }
+      - { name: intervention, in: query, schema: { type: string, enum: [Review pending, Planned, Active, Monitoring, None] } }
+      - { name: includeOnTrack, in: query, schema: { type: boolean } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/early-warning/export:
+  get:
+    tags: [Intelligence]
+    summary: Export the review list as CSV (same filters as /early-warning/students)
+    x-permission: earlywarning.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+      - { name: grade, in: query, schema: { type: string } }
+      - { name: risk, in: query, schema: { type: string } }
+      - { name: intervention, in: query, schema: { type: string } }
+    responses:
+      '200': { description: CSV file, content: { text/csv: { schema: { type: string } } } }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/early-warning/signals:
+  get:
+    tags: [Intelligence]
+    summary: List signals (awaiting review by default)
+    x-permission: earlywarning.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [raised, code, stage, student, owner, next] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [awaiting, open, closed, dismissed, all], default: awaiting } }
+      - { name: type, in: query, schema: { type: string, enum: [attendance, academic, behaviour, wellbeing, transport] } }
+      - { name: stage, in: query, schema: { type: integer, minimum: 0, maximum: 5 } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/early-warning/signals/{id}:
+  get:
+    tags: [Intelligence]
+    summary: Signal detail with evidence (attendance, trend, participation, notes) and audit history
+    x-permission: earlywarning.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/early-warning/signals/{id}/review:
+  post:
+    tags: [Intelligence]
+    summary: Teacher review — accept (opens an intervention, sets risk level, notifies owner) or dismiss with a reason
+    description: Allowed only at stage 0–1 before any decision. The optional `context` is saved as a teacher observation.
+    x-permission: earlywarning.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - type: object
+                required: [decision, actionPlan, ownerId, nextReviewOn]
+                properties:
+                  decision: { type: string, enum: [accept] }
+                  actionPlan: { type: string, minLength: 5, maxLength: 1000 }
+                  ownerId: { type: string, format: uuid, description: Employee id }
+                  nextReviewOn: { type: string, format: date }
+                  riskLevel: { type: string, enum: [On Track, Watch, Developing Risk, At Risk], description: Omit to raise automatically by indicator count }
+                  context: { type: string, maxLength: 2000 }
+              - type: object
+                required: [decision, reason]
+                properties:
+                  decision: { type: string, enum: [dismiss] }
+                  reason: { type: string, minLength: 5, maxLength: 1000 }
+                  context: { type: string, maxLength: 2000 }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+      '409': { description: Already reviewed or past the review stage }
+
+/early-warning/signals/{id}/advance:
+  post:
+    tags: [Intelligence]
+    summary: Move an accepted intervention forward (Intervention → Action → Follow-up)
+    x-permission: earlywarning.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [note]
+            properties:
+              note: { type: string, minLength: 3, maxLength: 1000 }
+              nextReviewOn: { type: string, format: date }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+      '409': { description: Not an open accepted intervention, or already in follow-up }
+
+/early-warning/signals/{id}/close:
+  post:
+    tags: [Intelligence]
+    summary: Close an intervention with its outcome (optionally updating the risk level)
+    x-permission: earlywarning.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [outcome]
+            properties:
+              outcome: { type: string, minLength: 5, maxLength: 1000 }
+              riskLevel: { type: string, enum: [On Track, Watch, Developing Risk, At Risk] }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+      '409': { description: Not an open accepted intervention }
+
+/early-warning/run-check:
+  post:
+    tags: [Intelligence]
+    summary: Run the deterministic signal check and raise Stage-0 signals
+    description: >
+      Rule A — attendance this academic year below the `early_warning.attendance_threshold` setting
+      (≥ 10 marked days). Rule B — latest-term average at least `early_warning.score_drop_threshold`
+      points below the previous term. Skips students with an open signal of the same type or one
+      dismissed in the last 30 days. Only students in the caller's scope are checked.
+    x-permission: earlywarning.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      content:
+        application/json:
+          schema: { type: object, properties: { campusId: { type: string, format: uuid } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/talent/overview:
+  get:
+    tags: [Intelligence]
+    summary: Strength distribution, open suggestions (score ≥ 82, no decision yet) and recent decisions
+    x-permission: students.read | students.read_assigned | ai.use
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/talent/students/{id}:
+  get:
+    tags: [Intelligence]
+    summary: One student's strengths with evidence, interests and activities
+    x-permission: students.read | students.read_assigned | ai.use
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/StudentIdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/talent/suggestions/{id}/decision:
+  post:
+    tags: [Intelligence]
+    summary: Accept (records an opportunity on the growth timeline) or dismiss a talent suggestion
+    description: "`id` is the student_skills id. The decision is audited (module talent)."
+    x-permission: students.read | students.read_assigned
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - { type: object, required: [decision, opportunity], properties: { decision: { type: string, enum: [accept] }, opportunity: { type: string, minLength: 5, maxLength: 300 } } }
+              - { type: object, required: [decision, reason], properties: { decision: { type: string, enum: [dismiss] }, reason: { type: string, minLength: 5, maxLength: 500 } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+      '409': { description: A decision already exists }
+
+/wellbeing/overview:
+  get:
+    tags: [Intelligence]
+    summary: Behaviour and wellbeing KPIs, notes by grade, mood distribution, infirmary today
+    description: Confidential check-ins are included in the mood distribution only for students.sensitive. Infirmary rows need students.sensitive or safety.read.
+    x-permission: students.read | students.read_assigned
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/wellbeing/behaviour:
+  get:
+    tags: [Intelligence]
+    summary: Behaviour notes (scoped)
+    x-permission: students.read | students.read_assigned
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: type, in: query, schema: { type: string, enum: [Positive, Note, Concern, Incident] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Intelligence]
+    summary: Record a behaviour note
+    x-permission: students.read | students.read_assigned
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [studentId, recordType, note]
+            properties:
+              studentId: { type: string, description: UUID or admission number }
+              recordType: { type: string, enum: [Positive, Note, Concern, Incident] }
+              note: { type: string, minLength: 3, maxLength: 1000 }
+              recordedOn: { type: string, format: date }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/wellbeing/checkins:
+  get:
+    tags: [Intelligence]
+    summary: Wellbeing check-ins (confidential rows only with students.sensitive; such reads are audited)
+    x-permission: students.read | students.read_assigned
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: mood, in: query, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Intelligence]
+    summary: Record a wellbeing check-in (isConfidential requires students.sensitive)
+    x-permission: students.read | students.read_assigned
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [studentId, mood]
+            properties:
+              studentId: { type: string }
+              mood: { type: string, enum: [Positive, Settled, Unsettled, Anxious, Low] }
+              notes: { type: string, maxLength: 1000 }
+              isConfidential: { type: boolean, default: false }
+              checkedOn: { type: string, format: date }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/portfolio/overview:
+  get:
+    tags: [Intelligence]
+    summary: Portfolio completeness by grade (achievements, activities, projects, documents)
+    x-permission: students.read | students.read_assigned
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/portfolio/students/{id}:
+  get:
+    tags: [Intelligence]
+    summary: One student's portfolio (audited view)
+    x-permission: students.read | students.read_assigned
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/StudentIdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/copilot/provider:
+  get:
+    tags: [Intelligence]
+    summary: The configured draft provider (template unless AI_PROVIDER selects another)
+    x-permission: ai.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/copilot/context:
+  get:
+    tags: [Intelligence]
+    summary: Quick actions, the caller's sections/subjects, topics and a factual context banner
+    x-permission: ai.use
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: grade, in: query, schema: { type: integer, minimum: 1, maximum: 12 } }
+      - { name: subjectId, in: query, schema: { type: string, format: uuid } }
+      - { name: topic, in: query, schema: { type: string } }
+      - { name: sectionId, in: query, schema: { type: string, format: uuid } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/copilot/drafts:
+  get:
+    tags: [Intelligence]
+    summary: Drafts (own drafts; school-scope staff see all)
+    x-permission: ai.use
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [created, status, type, title] } }
+      - $ref: '#/components/parameters/Dir'
+      - { name: type, in: query, schema: { type: string, enum: [lesson, worksheet, quiz, comment, message, brief] } }
+      - { name: status, in: query, schema: { type: string, enum: [Draft, Under Review, Approved, Rejected] } }
+      - { name: mine, in: query, schema: { type: boolean } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  post:
+    tags: [Intelligence]
+    summary: Generate a draft from school records (stored as Under Review; never published automatically)
+    description: >
+      lesson/worksheet use learning objectives and the approved question bank; quiz uses only approved
+      question-bank items (400 NO_APPROVED_QUESTIONS when none); comment needs sectionId (latest-term marks,
+      attendance, positives); message needs studentId (attendance, marks, homework); brief needs sectionId
+      (coverage, gaps, students to watch).
+    x-permission: ai.use
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [type, grade, subjectId, topic]
+            properties:
+              type: { type: string, enum: [lesson, worksheet, quiz, comment, message, brief] }
+              grade: { type: integer, minimum: 1, maximum: 12 }
+              subjectId: { type: string, format: uuid }
+              topic: { type: string, maxLength: 80 }
+              sectionId: { type: string, format: uuid }
+              studentId: { type: string, description: UUID or admission number }
+              lessonMinutes: { type: integer, enum: [40, 60, 80], default: 40 }
+              messagePurpose: { type: string, enum: [attendance, homework, progress, general], default: general }
+              plannedFor: { type: string, format: date }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/copilot/drafts/{id}:
+  get:
+    tags: [Intelligence]
+    summary: One draft
+    x-permission: ai.use
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  put:
+    tags: [Intelligence]
+    summary: Edit a draft (provenance — generator and sources — is preserved)
+    x-permission: ai.use
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, required: [output], properties: { output: { type: object } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+      '409': { description: Draft already approved or rejected }
+
+/copilot/drafts/{id}/approve:
+  post:
+    tags: [Intelligence]
+    summary: Approve as the signed-in named person; a lesson draft creates an approved, ai_generated lesson plan
+    x-permission: ai.use
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { description: No staff author available for a lesson plan }
+      '404': { $ref: '#/components/responses/NotFound' }
+      '409': { description: Draft already approved or rejected }
+
+/copilot/drafts/{id}/discard:
+  post:
+    tags: [Intelligence]
+    summary: Discard a draft (status Rejected)
+    x-permission: ai.use
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      content:
+        application/json:
+          schema: { type: object, properties: { reason: { type: string, maxLength: 500 } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+      '409': { description: Draft already approved or rejected }
+
+/knowledge/ask:
+  post:
+    tags: [Intelligence]
+    summary: Answer a question from approved documents the caller's role may read (or live admissions data)
+    description: >
+      Returns `found`, `answer` (verbatim excerpts), `confidence` (High/Medium/Low), `sources` (document,
+      section, updated date) and `excerpts`. "Admissions by source this month" is computed from enquiries
+      and needs admissions.read. Questions are audited.
+    x-permission: ai.use
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, required: [question], properties: { question: { type: string, minLength: 3, maxLength: 300 } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/knowledge/sources:
+  get:
+    tags: [Intelligence]
+    summary: Approved documents (and live sources) visible to the caller's role
+    x-permission: ai.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/knowledge/top-questions:
+  get:
+    tags: [Intelligence]
+    summary: Most asked topics this month (from the audit trail)
+    x-permission: ai.use
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/knowledge/feedback:
+  post:
+    tags: [Intelligence]
+    summary: Record answer feedback, or route the question to the front office
+    x-permission: ai.use
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [question, helpful]
+            properties:
+              question: { type: string }
+              helpful: { type: boolean }
+              documentIds: { type: array, items: { type: string, format: uuid } }
+              routeToPerson: { type: boolean, default: false }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/analytics/overview:
+  get:
+    tags: [Intelligence]
+    summary: Computed analytics for one area (student areas scoped; admissions/finance/workforce/safety need the matching read permission)
+    x-permission: reports.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: area, in: query, schema: { type: string, enum: [students, attendance, academics, admissions, finance, workforce, safety], default: students } }
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/analytics/export:
+  get:
+    tags: [Intelligence]
+    summary: Export one analytics area as CSV (dataset, label, measure, value)
+    x-permission: reports.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: area, in: query, schema: { type: string } }
+      - $ref: '#/components/parameters/CampusId'
+    responses:
+      '200': { description: CSV file, content: { text/csv: { schema: { type: string } } } }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/reports/catalog:
+  get:
+    tags: [Intelligence]
+    summary: Standard reports with availability for the caller
+    x-permission: reports.read
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/reports/{key}/preview:
+  get:
+    tags: [Intelligence]
+    summary: Run a standard report and return it as rows for on-screen review
+    description: >
+      Report Centre preview. Builds the report from the same definition used by the CSV
+      export, then searches, sorts, summarises and pages it, so the export always matches
+      what was reviewed. Returns columns, the requested page of rows, the numeric column
+      keys, KPI aggregates and a chart series. System-group reports (user-access,
+      login-activity, role-permissions, audit-trail, data-quality) are Super Admin only
+      and read as 404 for every other role.
+    x-permission: reports.read (+ report-specific permission)
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: key, in: path, required: true, schema: { type: string } }
+      - $ref: '#/components/parameters/CampusId'
+      - { name: date, in: query, schema: { type: string, format: date } }
+      - { name: from, in: query, schema: { type: string, format: date } }
+      - { name: to, in: query, schema: { type: string, format: date } }
+      - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+      - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 25 } }
+      - { name: sort, in: query, description: A column key; unknown keys keep the report's natural order, schema: { type: string } }
+      - { name: dir, in: query, schema: { type: string, enum: [asc, desc], default: asc } }
+      - { name: q, in: query, description: Free-text search across every column, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/reports/{key}/export:
+  get:
+    tags: [Intelligence]
+    summary: Generate a standard report as CSV
+    description: >
+      Keys — attendance-daily (attendance.read), early-warning (earlywarning.read), student-progress and
+      portfolio-completeness (students.read | students.read_assigned), assessment-results,
+      curriculum-coverage, report-card-status (academics.read), admissions-funnel (admissions.read),
+      fee-collection (finance.read), payroll-cost (payroll.read), compliance-status (operations.read),
+      safety-log (safety.read), daily-brief (dashboard.view + students.read), campus-comparison (group.read).
+      Super Admin only — user-access, role-permissions, data-quality (users.manage),
+      login-activity, audit-trail (audit.read).
+    x-permission: reports.read (+ report-specific permission)
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: key, in: path, required: true, schema: { type: string } }
+      - $ref: '#/components/parameters/CampusId'
+      - { name: date, in: query, schema: { type: string, format: date } }
+      - { name: from, in: query, schema: { type: string, format: date } }
+      - { name: to, in: query, schema: { type: string, format: date } }
+    responses:
+      '200': { description: CSV file, content: { text/csv: { schema: { type: string } } } }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }

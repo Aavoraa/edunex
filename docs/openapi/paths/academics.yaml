@@ -1,0 +1,855 @@
+# Academics module: teacher dashboard, student attendance, classes, subjects,
+# curriculum & objectives, timetable, assessments & marks, question bank,
+# lesson plans, homework, report cards, academic performance.
+# Section-bound data is limited to a teacher's own sections (teacher_assignments
+# or class teacher); records outside scope return 404.
+
+/academics/teacher-dashboard:
+  get:
+    tags: [Academics]
+    summary: Signed-in teacher's classes, today's periods, watchlist, tasks and homework
+    x-permission: attendance.mark
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/academics/sections:
+  get:
+    tags: [Academics]
+    summary: Sections the user may work with (teachers see only their sections)
+    x-permission: academics.read | attendance.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/attendance/sections:
+  get:
+    tags: [Attendance]
+    summary: Section picker with register status (Marked / Pending / Not marked) for a date
+    x-permission: attendance.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+      - { name: date, in: query, schema: { type: string, format: date } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/attendance/register:
+  get:
+    tags: [Attendance]
+    summary: Register for one section and date (roster, marks, first period, summary, editability)
+    x-permission: attendance.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: sectionId, in: query, required: true, schema: { type: string, format: uuid } }
+      - { name: date, in: query, description: Defaults to today; future dates are rejected, schema: { type: string, format: date } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  put:
+    tags: [Attendance]
+    summary: Save (upsert) attendance for a section and date
+    description: >
+      Upserts attendance_records (unique student + date) with marked_by. Newly absent students
+      queue a Critical parent alert (WhatsApp + push) and set parent_notified_at; newly late
+      students queue an Attention notice. Absence patterns (3+ consecutive days or below the
+      attendance threshold) raise an Early Warning signal at stage 0 for teacher review. Audited.
+    x-permission: attendance.mark
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [sectionId, date, marks]
+            properties:
+              sectionId: { type: string, format: uuid }
+              date: { type: string, format: date }
+              marks:
+                type: array
+                items:
+                  type: object
+                  required: [studentId, status]
+                  properties:
+                    studentId: { type: string, format: uuid }
+                    status: { type: string, enum: [present, late, absent, leave] }
+                    arrivalTime: { type: string, example: '08:52', nullable: true }
+                    remarks: { type: string, nullable: true }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/attendance/summary:
+  get:
+    tags: [Attendance]
+    summary: School-wide register figures for a date (sections marked, present, absent, late, leave)
+    x-permission: attendance.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+      - { name: date, in: query, schema: { type: string, format: date } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/attendance/analytics:
+  get:
+    tags: [Attendance]
+    summary: Attendance analytics — today's KPIs, 10-day trend, by grade, late arrivals by time, absence patterns
+    x-permission: students.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/academics/classes:
+  get:
+    tags: [Academics]
+    summary: Sections with students, class teacher, room, attendance today and register status
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [name, students, attendance, teacher, room] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: grade, in: query, schema: { type: integer } }
+      - { name: register, in: query, schema: { type: string, enum: [Marked, Partial, Not marked] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+
+/academics/classes/summary:
+  get:
+    tags: [Academics]
+    summary: Section and class counts
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/academics/sections/{id}:
+  put:
+    tags: [Academics]
+    summary: Change a section's class teacher or home room (school-level roles)
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      content:
+        application/json:
+          schema: { type: object, properties: { classTeacherId: { type: string, format: uuid, nullable: true }, room: { type: string, nullable: true } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/academics/subjects:
+  get:
+    tags: [Academics]
+    summary: Subjects with teachers, classes, current-term average and objective coverage
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/academics/curriculum:
+  get:
+    tags: [Academics]
+    summary: Curriculum stages, coverage by subject and coverage/mastery trend by term
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/academics/objectives:
+  get:
+    tags: [Academics]
+    summary: Cambridge learning objectives with coverage and mastery
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [code, text, subject, stage, coverage, mastery] } }
+      - $ref: '#/components/parameters/Dir'
+      - { name: subjectId, in: query, schema: { type: string, format: uuid } }
+      - { name: stage, in: query, schema: { type: string, example: Primary 5 } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Academics]
+    summary: Add a learning objective (school-level roles)
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, description, subjectId, stageLabel]
+            properties:
+              code: { type: string, example: 5Nf.09 }
+              description: { type: string }
+              subjectId: { type: string, format: uuid }
+              stageLabel: { type: string, example: Primary 5 }
+              coveragePct: { type: integer, minimum: 0, maximum: 100 }
+              masteryPct: { type: integer, minimum: 0, maximum: 100, description: Cannot exceed coverage }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '409': { description: Objective code already exists }
+
+/academics/objectives/stages:
+  get:
+    tags: [Academics]
+    summary: Distinct stage labels used by objectives
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/academics/objectives/import:
+  post:
+    tags: [Academics]
+    summary: Bulk import objectives (all-or-nothing, up to 200 rows)
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, required: [rows], properties: { rows: { type: array, items: { type: object } } } }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '409': { description: A code already exists }
+
+/academics/objectives/{id}:
+  put:
+    tags: [Academics]
+    summary: Update an objective's description, stage, coverage or mastery
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/academics/timetable:
+  get:
+    tags: [Academics]
+    summary: Day × period timetable for a section (or a teacher; teachers default to their own)
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { name: sectionId, in: query, schema: { type: string, format: uuid } }
+      - { name: employeeId, in: query, description: Teachers may only request their own, schema: { type: string, format: uuid } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/academics/timetable/insights:
+  get:
+    tags: [Academics]
+    summary: Teacher load (periods per week) and timetable utilisation for a campus
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/academics/timetable/entries/{id}:
+  put:
+    tags: [Academics]
+    summary: Edit a timetable cell (subject/activity, teacher, room, substitute flag) — school-level roles
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/academics/timetable/entries/{id}/substitutes:
+  get:
+    tags: [Academics]
+    summary: Ranked substitute suggestions (free, present, same campus) for a period
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/academics/timetable/entries/{id}/substitute:
+  post:
+    tags: [Academics]
+    summary: Assign cover for a period (notifies the substitute)
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, required: [substituteId], properties: { substituteId: { type: string, format: uuid }, note: { type: string } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  delete:
+    tags: [Academics]
+    summary: Remove cover (the period is flagged as needing a substitute again)
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/academics/timetable/publish:
+  post:
+    tags: [Academics]
+    summary: Publish timetable changes for a section (notifies its teachers)
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, required: [sectionId], properties: { sectionId: { type: string, format: uuid }, note: { type: string } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/academics/assessments:
+  get:
+    tags: [Assessments]
+    summary: Assessment register with marks entered / roster size
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [date, name, status, max, grade, code, subject] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [Scheduled, In Progress, Moderation, Completed] } }
+      - { name: subjectId, in: query, schema: { type: string, format: uuid } }
+      - { name: classId, in: query, schema: { type: string, format: uuid } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Assessments]
+    summary: Create an assessment (status Scheduled; code AS-nnnn)
+    x-permission: assessments.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, classId, subjectId, heldOn, maxMarks]
+            properties:
+              name: { type: string }
+              classId: { type: string, format: uuid }
+              sectionId: { type: string, format: uuid, nullable: true, description: Omit for a whole-grade assessment }
+              subjectId: { type: string, format: uuid }
+              assessmentType: { type: string, enum: [test, exam, mock, quiz, project, unit_test] }
+              heldOn: { type: string, format: date }
+              maxMarks: { type: number }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/academics/assessments/summary:
+  get:
+    tags: [Assessments]
+    summary: KPIs, grade distribution of the latest completed assessment and marker moderation
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/academics/assessments/{id}:
+  get:
+    tags: [Assessments]
+    summary: Assessment with its (scoped) roster and marks
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/academics/assessments/{id}/marks:
+  put:
+    tags: [Assessments]
+    summary: Bulk save marks; grade is computed. Scheduled → In Progress on first mark; action moves to Moderation or Completed
+    description: Marks are locked in Moderation/Completed. Completing from Moderation needs a school-level role.
+    x-permission: assessments.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [marks]
+            properties:
+              action: { type: string, enum: [save, moderation, complete], default: save }
+              marks:
+                type: array
+                items:
+                  type: object
+                  required: [studentId, marks]
+                  properties:
+                    studentId: { type: string, format: uuid }
+                    marks: { type: number, nullable: true }
+                    isAbsent: { type: boolean }
+                    remarks: { type: string }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+      '409': { description: Marks are locked }
+
+/academics/question-bank/topics:
+  get:
+    tags: [Academics]
+    summary: Question bank grouped by topic (items, used in assessments, difficulty)
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Search'
+      - { name: subjectId, in: query, schema: { type: string, format: uuid } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/academics/question-bank:
+  get:
+    tags: [Academics]
+    summary: Browse questions
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [question, topic, difficulty, marks, used, status, updated] } }
+      - $ref: '#/components/parameters/Dir'
+      - { name: subjectId, in: query, schema: { type: string, format: uuid } }
+      - { name: topic, in: query, schema: { type: string } }
+      - { name: difficulty, in: query, schema: { type: string, enum: [Foundation, Core, Higher] } }
+      - { name: status, in: query, schema: { type: string, enum: [Draft, Approved, Retired] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Academics]
+    summary: Add a question
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [subjectId, topic, stageLabel, question]
+            properties:
+              subjectId: { type: string, format: uuid }
+              topic: { type: string }
+              stageLabel: { type: string }
+              question: { type: string }
+              questionType: { type: string, enum: [mcq, short, long, numeric] }
+              difficulty: { type: string, enum: [Foundation, Core, Higher] }
+              marks: { type: integer }
+              status: { type: string, enum: [Draft, Approved] }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+
+/academics/question-bank/{id}:
+  put:
+    tags: [Academics]
+    summary: Update or retire a question (teachers edit only their own)
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  delete:
+    tags: [Academics]
+    summary: Delete an unused question (used questions must be retired)
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+      '409': { description: Question has been used }
+
+/academics/lesson-plans:
+  get:
+    tags: [Academics]
+    summary: Lesson plans (teachers see their own and their sections')
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [date, title, status, teacher, cls] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: status, in: query, schema: { type: string, enum: [Draft, Submitted, Under Review, Approved, Rejected] } }
+      - { name: subjectId, in: query, schema: { type: string, format: uuid } }
+      - { name: sectionId, in: query, schema: { type: string, format: uuid } }
+      - { name: mine, in: query, schema: { type: string, enum: ['true', 'false'] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Academics]
+    summary: Create a lesson plan (Draft, or Submitted when submit=true)
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, sectionId, subjectId, plannedFor]
+            properties:
+              title: { type: string }
+              sectionId: { type: string, format: uuid }
+              subjectId: { type: string, format: uuid }
+              objectiveId: { type: string, format: uuid, nullable: true }
+              plannedFor: { type: string, format: date }
+              content: { type: object, description: 'objective, plan[{time,step,detail}], activities[], differentiation[{level,detail}], homework' }
+              aiGenerated: { type: boolean }
+              submit: { type: boolean }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/academics/lesson-plans/summary:
+  get:
+    tags: [Academics]
+    summary: This week's plans, approved, awaiting review and AI-assisted share
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/academics/lesson-plans/{id}:
+  get:
+    tags: [Academics]
+    summary: Lesson plan with content
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  put:
+    tags: [Academics]
+    summary: Edit a Draft or Rejected plan (author only; returns it to Draft)
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '409': { description: Plan is locked }
+  delete:
+    tags: [Academics]
+    summary: Delete a draft plan (author only)
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '409': { description: Only drafts can be deleted }
+
+/academics/lesson-plans/{id}/transition:
+  post:
+    tags: [Academics]
+    summary: Workflow — submit / reopen (author); review / approve / reject (school-level reviewer, not the author)
+    description: Draft → Submitted → Under Review → Approved / Rejected. Records approved_by and approved_at.
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, required: [action], properties: { action: { type: string, enum: [submit, review, approve, reject, reopen] }, note: { type: string, description: Required to reject } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '409': { description: Invalid transition }
+
+/academics/homework:
+  get:
+    tags: [Academics]
+    summary: Homework with submissions / class size and display status (Overdue, Closing today)
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [due, title, status, cls, submitted] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: sectionId, in: query, schema: { type: string, format: uuid } }
+      - { name: subjectId, in: query, schema: { type: string, format: uuid } }
+      - { name: status, in: query, schema: { type: string, enum: [Open, Closed, Overdue, Draft] } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }
+  post:
+    tags: [Academics]
+    summary: Set homework (notifies parents when Open)
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [sectionId, subjectId, title, dueOn]
+            properties:
+              sectionId: { type: string, format: uuid }
+              subjectId: { type: string, format: uuid }
+              title: { type: string }
+              instructions: { type: string }
+              dueOn: { type: string, format: date }
+              status: { type: string, enum: [Draft, Open] }
+    responses:
+      '201': { $ref: '#/components/responses/Created' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/academics/homework/summary:
+  get:
+    tags: [Academics]
+    summary: Open assignments, average submission, overdue, students below 50%
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/CampusId' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/academics/homework/{id}/close:
+  post:
+    tags: [Academics]
+    summary: Close homework
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+      '409': { description: Already closed }
+
+/academics/homework/{id}/publish:
+  post:
+    tags: [Academics]
+    summary: Publish a draft homework
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '409': { description: Invalid transition }
+
+/academics/homework/{id}/remind:
+  post:
+    tags: [Academics]
+    summary: Queue a reminder to parents of students who have not submitted
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '409': { description: Homework is not open }
+
+/academics/homework/{id}/submissions:
+  get:
+    tags: [Academics]
+    summary: Class roster with submission status
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  put:
+    tags: [Academics]
+    summary: Record a submission (Submitted / Late / Reviewed) or mark it Missing
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, required: [studentId, status], properties: { studentId: { type: string, format: uuid }, status: { type: string, enum: [Submitted, Late, Reviewed, Missing] }, feedback: { type: string } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/academics/report-cards:
+  get:
+    tags: [Academics]
+    summary: Report-card batches per section with stage (0 Marks entry … 5 Parent release)
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+      - { name: term, in: query, schema: { type: string } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+
+/academics/report-cards/release:
+  post:
+    tags: [Academics]
+    summary: Approve and release every batch awaiting approval (school-level roles; notifies parents)
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      content:
+        application/json:
+          schema: { type: object, properties: { campusId: { type: string, format: uuid } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/academics/report-cards/{id}:
+  get:
+    tags: [Academics]
+    summary: Batch detail — students, comment status, and one student's marks and comment
+    x-permission: academics.read
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - { name: studentId, in: query, schema: { type: string, format: uuid } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/academics/report-cards/{id}/advance:
+  post:
+    tags: [Academics]
+    summary: Move a batch to the next stage (drafts comments at stage 2; stage 4 needs every comment approved; stage 5 needs a school-level approver)
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, required: [toStage], properties: { toStage: { type: integer, minimum: 1, maximum: 5 } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+      '409': { description: Not the next stage }
+
+/academics/report-cards/{id}/draft-missing:
+  post:
+    tags: [Academics]
+    summary: Draft comments for students without one (stages 2–3)
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '409': { description: Wrong stage }
+
+/academics/report-card-comments/{id}/review:
+  post:
+    tags: [Academics]
+    summary: Review an AI-drafted comment — approve (optionally edited), reject, or regenerate
+    x-permission: academics.manage
+    security: [{ bearerAuth: [] }]
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, required: [action], properties: { action: { type: string, enum: [approve, reject, regenerate] }, comment: { type: string, description: Edited text (approve) } } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '404': { $ref: '#/components/responses/NotFound' }
+      '409': { description: Batch is locked }
+
+/academics/performance:
+  get:
+    tags: [Academics]
+    summary: Cohort performance from student_academic_records (average, expectation bands, subject averages, biggest movers)
+    x-permission: students.read | students.read_assigned
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/CampusId'
+      - { name: grade, in: query, schema: { type: integer } }
+    responses:
+      '200': { $ref: '#/components/responses/Ok' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/academics/performance/students:
+  get:
+    tags: [Academics]
+    summary: Per-student term average, target, trend and expectation band (scoped)
+    x-permission: students.read | students.read_assigned
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Search'
+      - { name: sort, in: query, schema: { type: string, enum: [average, trend, target, gap, name, grade] } }
+      - $ref: '#/components/parameters/Dir'
+      - $ref: '#/components/parameters/CampusId'
+      - { name: grade, in: query, schema: { type: integer } }
+      - { name: band, in: query, schema: { type: string, enum: [above, at, below] } }
+      - { name: subjectId, in: query, schema: { type: string, format: uuid } }
+    responses:
+      '200': { $ref: '#/components/responses/Paged' }

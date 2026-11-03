@@ -1,0 +1,319 @@
+EDUNEX SMART SCHOOL 360 - HOW TO RUN
+======================================
+
+Project folder:  C:\Users\USER\ui ux\edunex\Application
+Needs:           Node.js 20 or newer, PostgreSQL (already installed on this PC)
+
+All commands below are run from the project folder, in PowerShell or Git Bash.
+
+What you get:
+  - Website (React)            http://localhost:5173
+  - Common REST API            http://localhost:4000/api
+  - API documentation          http://localhost:4000/api/docs
+  - PostgreSQL database        localhost:5544, database "edunex"
+  - Paper Correction service   http://127.0.0.1:8006 (internal; see section F)
+
+
+----------------------------------------------------------------------
+QUICK START (this PC, everything already set up)
+----------------------------------------------------------------------
+
+  1. Start the database (PowerShell):
+       & "C:\Program Files\PostgreSQL\18\bin\pg_ctl.exe" -D .\.pgdata -o "-p 5544" -l .\.pgdata\server.log start
+
+  2. Start the API and the website:
+       npm run dev
+
+  3. Open http://localhost:5173 and sign in (see section C).
+
+  To stop: Ctrl+C in the terminal, then optionally
+       & "C:\Program Files\PostgreSQL\18\bin\pg_ctl.exe" -D .\.pgdata stop
+
+
+----------------------------------------------------------------------
+A. FIRST TIME ONLY (or on a new machine)
+----------------------------------------------------------------------
+
+1) Install packages
+
+   npm install
+
+2) Settings file (.env)
+
+   The file ".env" in the project folder holds the settings. On this PC it
+   already exists. On a NEW machine copy .env.example to .env and fill in:
+
+     DATABASE_URL        database connection
+                         (this PC: postgres://postgres:...@localhost:5544/edunex)
+     JWT_SECRET          long random value
+     JWT_REFRESH_SECRET  a different long random value
+     SEED_DEMO_PASSWORD  the password given to every demo account
+
+   Generate a random secret with:
+     node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+
+   Request limits (per 15 minutes, per computer address):
+     RATE_LIMIT_MAX        all API requests  (this PC: 50000 for testing)
+     AUTH_RATE_LIMIT_MAX   sign-in attempts  (this PC: 200)
+
+3) Database
+
+   This PC uses a private PostgreSQL cluster in the ".pgdata" folder on
+   port 5544. Your installed PostgreSQL 17/18 services are not touched.
+
+   Start it (PowerShell):
+     & "C:\Program Files\PostgreSQL\18\bin\pg_ctl.exe" -D .\.pgdata -o "-p 5544" -l .\.pgdata\server.log start
+
+   On a NEW machine, either:
+     - create a private cluster (PostgreSQL binaries on PATH, or set PG_BIN):
+         set LOCAL_PG_PASSWORD=choose-a-password   (PowerShell: $env:LOCAL_PG_PASSWORD="...")
+         npm run db:local:init
+       then later: npm run db:local:start / npm run db:local:stop
+     - or point DATABASE_URL at any PostgreSQL 15+ database you already have.
+
+4) Create the tables and load the sample data
+
+   npm run db:reset
+
+   This DROPS and recreates everything in the database named in
+   DATABASE_URL, runs all migrations, then loads fictional sample data:
+   about 300 students (at least 5 in every class section), staff,
+   parents, fees, payroll, admissions, academics,
+   transport and sample GPS coordinates. Dates are generated relative to
+   today, so the dashboards always look current. Re-run it any time you
+   want a fresh demo (for example the next day).
+
+
+----------------------------------------------------------------------
+B. EVERY TIME
+----------------------------------------------------------------------
+
+1) Make sure the database is running.
+   Check (PowerShell):
+     & "C:\Program Files\PostgreSQL\18\bin\pg_ctl.exe" -D .\.pgdata status
+
+2) Start the API and the website together:
+
+     npm run dev
+
+   Or in two separate terminals:
+     npm run dev:api        (API on port 4000, restarts when code changes)
+     npm run dev:web        (website on port 5173)
+
+3) Open http://localhost:5173 in the browser.
+
+4) Stop: press Ctrl+C in the terminal(s).
+
+
+----------------------------------------------------------------------
+C. SIGNING IN (demo accounts - sample data only)
+----------------------------------------------------------------------
+
+Password for every demo account = the SEED_DEMO_PASSWORD value in .env
+
+  Principal / Management   meera.krishnan.demo@edunex.edu
+  Teacher (Grade 5A)       priya.raghavan.demo@edunex.edu
+  Parent (Aditya & Surya)  ranjith.kumar.demo@parents.edunex.edu
+  Office                   kavitha.s.demo@edunex.edu
+  Non-teaching staff       murugan.p.demo@edunex.edu
+  Super Admin              admin.demo@edunex.edu
+  School Admin             anand.rao.demo@edunex.edu
+  Management (trustee)     srinivasan.demo@edunex.edu
+  HR                       lakshmi.n.demo@edunex.edu
+  Finance                  rajesh.iyer.demo@edunex.edu
+  Student                  aditya.kumar.demo@students.edunex.edu
+  Second parent            sudha.raman.demo@parents.edunex.edu
+  Second teacher           ganesh.venkat.demo@edunex.edu
+
+On the sign-in page choose the campus, type the email and the password.
+The role comes from the account: each user lands on their own workspace.
+
+5 wrong passwords lock an account for 15 minutes. A Super Admin can
+unlock it at Administration -> Users & Roles, or just wait.
+
+Light / dark theme: the sun/moon button in the top bar. The choice is
+remembered in this browser; on a first visit the device setting is used.
+
+Owner Overview (Super Admin): the sign-in landing page. Shows the previous
+sign-in, the money (collected, outstanding by age, money out, net), and what
+the management team changed since you were last here.
+
+Things to try:
+  Owner Overview     Super Admin -> Dashboard
+                     (sign in twice, with a change in between, to see the
+                      "since your last sign-in" list fill up)
+  Tracking (staff)   Principal -> sidebar "Student Tracking"
+                     (map of all students, filters, list, history)
+  Student 360        Principal -> Students -> Aditya Kumar
+                     -> "Student Tracking" tab
+  Tracking (parent)  Parent -> Parent 360 -> "Track" tab
+                     (own children only, last 7 days of history)
+  Pay fees           Parent -> Parent 360 -> "Fees" -> Pay Now
+                     (payment is simulated - no real gateway)
+  Attendance         Teacher -> Attendance -> Grade 5A (not yet marked today)
+  Admissions         Office -> Leads -> open a lead -> move it to Enrolled
+  Payroll            HR prepares the run, Super Admin approves it
+
+  Approvals          ONLY the Super Admin approves or rejects - in every module
+                     (expenses, leave, payroll, circulars, report cards,
+                     admissions offers, budget plans ...). Other roles prepare
+                     and submit; they see "Awaiting Super Admin approval".
+                     Super Admin -> sidebar "Approvals" = one inbox for all.
+  Budget planning    Finance / HR / Office / Principal -> Budget & Planning ->
+                     Budget Plans -> New plan -> Submit. Super Admin approves
+                     (optionally a lower amount); the amount is added to Budgets.
+  Job cards          Any staff -> Job Cards -> New job card (from your
+                     department to another). The receiving department assigns,
+                     works and completes it; the raiser closes it.
+                     Principal -> Departments (heads, open cards in/out).
+  Parent contact log Principal / Office -> Parent Experience -> Parent Contact
+                     Log: how often parents and teachers tried to reach the
+                     principal or staff, repeat-contact alerts, "Log a contact".
+                     Messages, calls, PTM meetings and parent visitors are
+                     included automatically.
+  IGCSE syllabus     Academics -> IGCSE Syllabus (Grades 9-10: papers, topics,
+                     coverage, Core/Extended entries) and Grading Scheme
+                     (A* to G, then U; boundaries editable by the Principal).
+                     Each syllabus links to the Cambridge PDF for each grade's
+                     exam year (Grade 10 sits exams this year, Grade 9 next year).
+                     "Cambridge catalogue" lists all Cambridge IGCSE syllabuses
+                     (database/data/cambridge-igcse-syllabuses.csv) to add more.
+  Boards             Academics has three sub-divisions with the same features:
+                     Cambridge IGCSE (Objectives, Syllabus, Grading A* to G/U,
+                     Assessments), Tamil Nadu Matriculation (Learning Outcomes,
+                     Syllabus by standard, Grading A1 to E2 with D from 35% a
+                     pass, Assessments) and CBSE (Learning Outcomes, Syllabus by
+                     class on NCERT units, Grading A1 to E with D from 33% a
+                     pass, Assessments). "Move to ..." on a grading page
+                     switches a class's board and re-grades its marks. Demo:
+                     Vadavalli Grades 6-9 are Matriculation (AS-3302, AS-3303)
+                     and Pollachi Grades 6-9 are CBSE (AS-3304, AS-3305) —
+                     choose that campus to see their assessments.
+  Admission forms    Office -> Applications -> New application, or a lead ->
+                     "Add admission form": type the filled form in, upload the
+                     scanned form (PDF/photo), or both. "Import forms" takes a CSV.
+
+  Example student from the brief: Aarav Kumar (HS-2026-1091),
+  location 11.0168, 76.9558 (Coimbatore).
+
+
+----------------------------------------------------------------------
+D. USEFUL COMMANDS
+----------------------------------------------------------------------
+
+  npm run dev              API + website together (development)
+  npm run dev:api          API only
+  npm run dev:web          website only
+  npm run db:migrate       apply new database migrations only (keeps data)
+  npm run db:seed          load sample data into an EMPTY database
+  npm run db:reset         wipe + recreate + reload sample data
+  npm run db:sample-files  attach SAMPLE PDFs to received student documents
+                           (Verified/Submitted) so View/Download work; keeps data
+  npm run test:db          prepare the separate test database (edunex_test)
+  npm test                 run the API tests (run test:db first)
+  npm run test:screens     open every screen as 8 roles and check for errors
+                           (the API must be running on port 4000;
+                            takes about 5-10 minutes)
+  npm run typecheck        check TypeScript in API and website
+
+  Design preview (development only, no sign-in, sample values):
+    http://localhost:5173/__ui
+
+  Regenerate the database documentation (docs\DATABASE.md):
+    npm run docs:schema --workspace backend
+
+
+----------------------------------------------------------------------
+E. PROBLEMS
+----------------------------------------------------------------------
+
+  "Invalid environment configuration"
+      -> .env is missing or a value is wrong. Compare with .env.example.
+
+  "ECONNREFUSED ... 5544" / database errors
+      -> the database is not running. Do step B1.
+
+  Website opens but shows no data / keeps loading on the logo screen
+      -> the API is not running on port 4000. Start it with: npm run dev:api
+
+  "Too many requests"
+      -> the request limit was reached. Wait 15 minutes, or restart the
+         API (npm run dev:api), or raise RATE_LIMIT_MAX in .env.
+
+  "Too many failed attempts" when signing in
+      -> the account is locked for 15 minutes after 5 wrong passwords.
+
+  Port already in use (4000 or 5173)
+      -> another copy is still running. Close it, or in PowerShell:
+           Get-NetTCPConnection -LocalPort 4000 | Select OwningProcess
+           Stop-Process -Id <that number>
+
+  Sample data looks out of date (e.g. no attendance today)
+      -> run npm run db:reset (dates are generated for the day it runs).
+
+  Forgot the demo password
+      -> it is SEED_DEMO_PASSWORD in .env. If you change it, run
+         npm run db:reset again.
+
+  Map is blank
+      -> the map tiles come from OpenStreetMap, which needs an internet
+         connection.
+
+
+----------------------------------------------------------------------
+F. PAPER CORRECTION (AI marking of answer sheets - exam-vision\)
+----------------------------------------------------------------------
+
+  Teachers upload handwritten answer sheets (PDF or photos); Claude reads
+  them and suggests marks against the teacher's rubric; the teacher checks
+  and approves every mark. Approved totals go into an assessment's marks
+  register (Assessments), from where they reach Student 360 and report cards.
+
+  Where:     sidebar Academics -> Paper Correction  (/paper-correction)
+  Who:       Teacher (exams assigned to them), Principal (creates exams,
+             assigns teachers, approves results), Super Admin / School
+             Admin (also AI configuration)
+
+  It is a separate Python service in exam-vision\backend. Edunex signs
+  users in and forwards their requests, signed with EXAM_VISION_SECRET.
+  Students and teachers are copied from Edunex automatically (every
+  5 minutes while in use, or "Sync students & staff").
+
+  First time on a PC (Python 3.12+):
+     cd exam-vision\backend
+     python -m venv .venv
+     .venv\Scripts\python.exe -m pip install -r requirements.txt
+
+  .env (already set on this PC):
+     EXAM_VISION_URL=http://127.0.0.1:8006
+     EXAM_VISION_SECRET=<long random value, 32+ characters>
+  Leave EXAM_VISION_URL empty to switch the module off.
+
+  "npm run dev" then starts it with the API and website ([exam] lines).
+
+  Claude key: sign in as Super Admin -> Paper Correction -> AI configuration.
+  Enter the key, acknowledge sending pages to Anthropic, Save, then
+  "Read a sample page". Without a key, sheets can be uploaded but not read.
+
+  Try it: Principal -> Paper Correction -> New examination (class, section,
+  subject) -> Questions & rubrics -> add questions, "Draft with AI" rubrics
+  -> Settings tab: assign Ms. Priya Raghavan. Teacher -> upload a sheet ->
+  Review -> confirm the student, check each answer, Approve. Principal ->
+  Mark as reviewed -> Approve results -> Results & reports -> Send to
+  assessment.
+
+  Its data (exams, sheet images, marks, AI settings) is stored in
+  exam-vision\backend\data on this PC.
+
+  Tests of the service:  cd exam-vision\backend
+                         .venv\Scripts\python.exe -m pytest tests -q
+
+  "Paper Correction is not connected"
+      -> the service is not running (look for [exam] lines in npm run dev),
+         or EXAM_VISION_URL / EXAM_VISION_SECRET are not set in .env.
+  "Paper Correction refused the gateway signature" in the API log
+      -> the service was started with a different secret; restart npm run dev.
+
+
+More detail: README.md and the docs\ folder
+(ARCHITECTURE, DATABASE, SECURITY, TRACKING, API, ASSUMPTIONS).

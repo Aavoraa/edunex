@@ -1,0 +1,150 @@
+# Edunex Smart School 360 — UI design system
+
+How screens are built. Every colour comes from a token in
+`frontend/src/styles/tokens.css`; the brand palette is not to be changed.
+
+## Principles
+
+Match the approved dashboard reference. Brand first, clarity in data, teal as an accent only.
+
+* **Palette:** Edunex Indigo `#3B3FD9` (`--brand`), Deep Indigo `#2F32B8` (`--brand-hover`),
+  Midnight `#1E1B4B` (`--brand-strong`), Edunex Teal `#2DD4BF` (`--accent`), Charcoal `#171717`, White.
+* **Midnight-indigo navigation** (`--sidebar-bg`) with white outline icons; the active page is a
+  pale teal bar with dark text (`--sidebar-active-bg`).
+* **Cool-white workspace** (`--bg`), white cards, thin `--border`, 10px corners, very subtle shadow (`--sh-1`).
+* **Indigo primary actions**; secondary actions are white with a thin border (teal on the dashboard banner).
+* **Teal is an accent**: active navigation, small rules under rail titles, the banner line. Medals stay gold.
+* **Semantic colours only for meaning:** `--success`, `--warning`, `--critical`, `--caution`. Status is
+  never shown by colour alone — always with a label or icon.
+* **Type:** Montserrat for the interface (brand guide). Libre Baskerville (`--font-serif`) for the dashboard
+  greeting, headline figures and quotes. Cinzel from the brand guide has capitals only, so it is not used
+  for the mixed-case greeting the reference shows.
+* **Edunex mark decorations** (open book and spark) are faint and sparing: sidebar corner, banner, metric cards, quote card.
+* **Accessibility (WCAG 2.2 AA):** every text colour meets 4.5:1, controls 3:1 (`--control-border`),
+  a solid 2px focus ring, a visible skip link, targets of at least 24px (44px on phones).
+
+## Subtle hues (`styles/hues.css`)
+
+A muted secondary palette used **only behind icons**, as a soft tint with a matching icon colour:
+brand, blue, plum, sage, amber, teal, indigo, rose, terracotta, steel (`--hue-*`, `--hue-*-tint`,
+with dark-theme equivalents). Any element with `data-hue="blue"` (etc.) exposes `--h` / `--h-tint`.
+
+* Each module has a hue (`hue` in `layouts/nav.ts`): the
+  small tile beside every page title uses it (Students brand, Admissions blue, Academics plum,
+  Parent Experience rose, GPS & Safety terracotta, Finance sage, Staff amber, Operations steel,
+  Intelligence teal, Group indigo).
+* Untoned KPIs, card-header icon chips, quick actions, activity items and avatars rotate through
+  the hues; event tags use one hue per event type.
+* Semantic status colours always win: a KPI with `tone="critical"` stays red. Large surfaces,
+  tables and text stay neutral. Never use a hue for status.
+
+## Brand palette (from `tokens.css`)
+
+| Token | Light | Use |
+|---|---|---|
+| `--brand` | `#3B3FD9` Edunex Indigo | primary buttons, active navigation, focus, links, icons |
+| `--brand-hover` | `#2F32B8` | hover of brand surfaces |
+| `--brand-strong` | `#1E1B4B` Midnight | sidebar brand block |
+| `--brand-tint`, `--brand-line` | lavender tint / line | active nav, selected rows, icon tiles |
+| `--accent` / `--accent-strong` | `#2DD4BF` / `#0F766E` Teal | highlights and accents |
+| `--bg`, `--surface`, `--surface-alt` | `#F6F7FB` / white / `#F9FAFD` | page, cards, table heads |
+| text | `#111529` / `#2D3748` / `#5B6475` | headings / body / muted |
+| `--success --warning --caution --critical --neutral` | semantic | badges, alerts, chart bands |
+
+The dark theme (`:root[data-theme="dark"]`) redefines the same tokens. Never hard-code a hex
+value in a component; use a token.
+
+## Where the styles live
+
+`tokens.css` (values) → `base.css` (reset, type, utilities) → `components.css` (the component kit)
+→ `layout.css` (application shell) → `responsive.css` → `app.css` (maps, QR) → `modules/*.css`
+(module-only layouts) → **`system.css`** (the single design layer: shell refinements, cards, KPIs,
+dashboard widgets, campus banner). Add shared rules to `components.css` or `system.css` —
+never as another override file.
+
+## Page anatomy
+
+```
+<Page>
+  <PageHead title sub actions />      // breadcrumbs are automatic (from the sidebar)
+  [KPI row]                           // ≤ 4 headline KPIs
+  [filters / toolbar]
+  [main content: cards, tables]
+</Page>
+```
+
+* **One primary action** per page header (`variant="primary"`); others are default (ghost) buttons.
+* `PageHead` derives "Section › Page" breadcrumbs from `layouts/nav.ts`. Pass `crumbs` only for
+  records deeper than the menu (e.g. a project page), or `crumbs={false}` to hide them.
+* The browser tab title is set automatically from the route.
+
+## Shell
+
+* **Sidebar (270px):** midnight indigo with the Edunex mark, white outline icons (19px), 12.5px labels,
+  34px rows, uppercase captions (`section` in `layouts/nav.ts`), red count badges and a faint Edunex mark
+  in the lower corner. The active page is a pale teal bar with dark text. Collapses (double-chevron button)
+  to a 72px rail; a drawer below 1024px.
+* **Top bar (64px):** search left; academic year, campus, alerts, theme and the user menu right.
+  AI Assistant and language live in the user menu.
+
+## Dashboards
+
+* `<CampusBanner title sub actions />` first: serif greeting with a gold rule, summary, date and actions on the
+  left; the campus photo (`/images/campus-banner.webp`) fades in on the right with the school's line.
+* Then `<DashLayout rail={<DashRail actions={…} />}>`: main column + 276px rail (Quick Actions, Recent
+  Notifications, optional Upcoming Events, the quote card).
+* `<SchoolPulse metrics />` (`components/ui/dashboardWidgets.tsx`) gives the reference layout from live data:
+  four `MetricCard`s with sparklines (students, staff, attendance, fee collection — history from
+  `/dashboard/command-center`), the attendance `LineChart` (students and, when recorded, staff) beside the
+  performance `Donut`, then Top Performers. Without `metrics` it renders the charts only.
+* Charts in `components/ui/dashboardViz.tsx` are React SVG with text summaries for screen readers.
+
+## Cards and KPIs
+
+* `<Card icon title actions={<CardLink to="…">View all</CardLink>}>` — brand icon, 15.5px title.
+* `<Kpi>` — `tone` (`teal` = success, `amber` = warning, `critical`, `info`), optional `icon`
+  (shown in a tinted tile), `to` / `onClick` to link. Untoned KPIs use the brand tint.
+* `size="hero"` for the 3–4 figures a page leads with. More than four figures: lead with ≤4,
+  then `<div className="statgrid statgrid--card">` with `<Kpi size="compact">`. No orphan tiles.
+
+## Tables
+
+* `<Card flush>` → `<Toolbar>` (search + `FilterSelect`s + actions) → `<DataTable>` → `<Pagination>`.
+* 11px uppercase headers, 11px cell padding, subtle hover; `DataTable` stacks into cards below 768px.
+* Numeric columns use `className: 'num'` (right aligned, tabular figures).
+* Row actions go in the last column as `size="sm"` buttons; destructive ones use `useConfirm()`.
+
+## Forms
+
+* `TextField`, `SelectField`, `TextArea`, `Checkbox` with `label`, `required`, `error`, `hint`.
+* Group related fields: `<div className="formsection"><div className="formsection__title">Contact</div><div className="form-grid">…</div></div>`.
+* Errors sit under their field (`error` prop). Submit buttons use `loading`.
+* Disable submit while saving; close the modal and `toast()` on success; `InlineError` on failure.
+
+## Records (profiles)
+
+`.profilehead` → `__main` (avatar, `__id` with `__name`, `__meta`, `__facts`; `__actions`) and
+`__stats` (a `<dl>` of 3–5 figures). Follow with `<div className="tabsbar"><Tabs …/></div>`
+so tabs stay reachable while scrolling. See `pages/students/Student360Page.tsx`.
+
+## Feedback
+
+* Loading: `PageSkeleton` / `QueryState`; tables show skeleton rows.
+* Empty: `<Empty icon title sub action>` — say what will appear and how to add it.
+* Errors: `ErrorState` (with retry) for pages, `InlineError` inside forms.
+* Destructive actions: `useConfirm({ danger: true })`.
+* Success: `useToast()('Saved', 'success')`.
+
+## Spacing and type
+
+4-pt spacing tokens `--s-1 … --s-10`; page gutter `--page-x`. Control heights: `--control-h`
+(38px) for buttons and form inputs, `--control-h-sm` (32px) for small buttons and every toolbar or
+filter control. Type: `--fs-h1` 22px page and banner titles, 15.5px card titles, 13.5px body and
+navigation, 11px table headers. Use the utility classes in `base.css` (`row`, `col`, `g-3`,
+`grid g-2col`, `t-muted`, `t-num` …) before writing inline styles.
+
+## Responsive
+
+Desktop ≥ 1200px; tablet 768–1199px (sidebar becomes a drawer); mobile < 768px (bottom
+navigation, stacked tables, 44px touch targets). Avoid fixed pixel widths on content; use
+`minmax()` grids and `flex-wrap`.

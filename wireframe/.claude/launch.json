@@ -1,0 +1,27 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "edunex-wireframe",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5573"
+      ],
+      "port": 5573
+    },
+    {
+      "name": "edunex-proposal-wireframe",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5574",
+        "--directory",
+        "C:\\Users\\USER\\OneDrive\\Desktop\\edunex"
+      ],
+      "port": 5574
+    }
+  ]
+}

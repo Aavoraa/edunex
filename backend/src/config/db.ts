@@ -1,0 +1,66 @@
+import pg from 'pg';
+import { env } from './env.js';
+import { logger } from '../utils/logger.js';
+
+// Return DATE columns as 'YYYY-MM-DD' strings (no timezone shifting) and
+// NUMERIC as JS numbers (all money/scores here are well within double precision).
+pg.types.setTypeParser(pg.types.builtins.DATE, (v) => v);
+pg.types.setTypeParser(pg.types.builtins.NUMERIC, (v) => (v === null ? null : Number(v)));
+pg.types.setTypeParser(pg.types.builtins.INT8, (v) => (v === null ? null : Number(v)));
+
+export const pool = new pg.Pool({
+  connectionString: env.DATABASE_URL,
+  max: env.DATABASE_POOL_MAX,
+  idleTimeoutMillis: 30_000,
+  // Fail fast instead of hanging when the database is not running.
+  connectionTimeoutMillis: 15_000,
+  // "Today" is the school's day (docs/ASSUMPTIONS.md): current_date, now()::date and date
+  // casts follow the session time zone, and a server running in UTC would put
+  // 00:00-05:30 IST on the previous day. Runs before the connection is handed out.
+  // Migration 118 sets the same default on the role.
+  onConnect: (client) =>
+    client.query("SET TIME ZONE 'Asia/Kolkata'").then(
+      () => undefined,
+      (err: Error) => logger.warn({ err: err.message }, 'Could not set the session time zone'),
+    ),
+});
+
+// An idle client can be dropped by the server (e.g. a database restart).
+// pg emits that on the pool; without a listener Node
+// treats it as unhandled and the whole API exits. The pool discards the dead
+// client and opens a fresh one on the next query, so logging is enough.
+pool.on('error', (err) => {
+  logger.warn({ err: err.message }, 'Idle database connection closed; it will be replaced on next use');
+});
+export type Queryable = pg.Pool | pg.PoolClient;
+
+/** Parameterised query helper. Never interpolate user input into `text`. */
+export async function query<T extends pg.QueryResultRow = any>(text: string, params: unknown[] = [], db: Queryable = pool) {
+  return db.query<T>(text, params as any[]);
+}
+
+export async function one<T extends pg.QueryResultRow = any>(text: string, params: unknown[] = [], db: Queryable = pool): Promise<T | null> {
+  const r = await db.query<T>(text, params as any[]);
+  return r.rows[0] ?? null;
+}
+
+export async function many<T extends pg.QueryResultRow = any>(text: string, params: unknown[] = [], db: Queryable = pool): Promise<T[]> {
+  const r = await db.query<T>(text, params as any[]);
+  return r.rows;
+}
+
+/** Runs `fn` inside a transaction; rolls back on any thrown error. */
+export async function tx<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const out = await fn(client);
+    await client.query('COMMIT');
+    return out;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}

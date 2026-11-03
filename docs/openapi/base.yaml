@@ -1,0 +1,208 @@
+openapi: 3.0.3
+info:
+  title: Edunex Smart School 360 — Common REST API
+  version: 1.0.0
+  description: |
+    One API for the web application, the mobile applications and future integrations.
+
+    **Authentication.** `POST /api/auth/login` returns a short-lived JWT access token.
+    Send it as `Authorization: Bearer <token>`. Web clients receive the refresh token as an
+    httpOnly cookie; mobile/integration clients (`clientType: "mobile"` or header
+    `X-Client-Type: mobile`) receive it in the response body and call
+    `POST /api/auth/refresh` with `{ "refreshToken": "…" }`. Refresh tokens rotate on every
+    use; re-using an old token revokes the whole session.
+
+    **Authorisation.** Every endpoint requires a permission (shown as `x-permission`) and
+    applies a data scope: school-wide staff, teachers (assigned classes only), parents (own
+    children only), staff and students (self only). Records outside the caller's scope return 404.
+
+    **Envelope.** Success: `{ "success": true, "data": …, "message": "…", "meta"?: {page,pageSize,total,totalPages} }`.
+    Error: `{ "success": false, "message": "…", "error": "MACHINE_CODE", "details"?: [{field,message}] }`.
+
+    **Sample data.** Development databases contain fictional sample data, including generated GPS coordinates.
+servers:
+  - url: /api
+tags:
+  - { name: Auth, description: Sign-in, token refresh, sessions }
+  - { name: Public, description: Unauthenticated bootstrap configuration }
+  - { name: Core, description: Notifications, tasks, search, lookups, documents, users, settings, audit }
+  - { name: Dashboard }
+  - { name: Students, description: Student register and Student 360 }
+  - { name: Tracking, description: Student GPS tracking, maps and location history }
+  - { name: GPS Devices, description: 'Device registry, student ↔ device assignments, and the one device location endpoint' }
+  - { name: Parents, description: Parent records and the parent portal (own children only) }
+  - { name: Academics }
+  - { name: Admissions }
+  - { name: Finance }
+  - { name: Workforce }
+  - { name: Safety }
+  - { name: Parent Experience }
+  - { name: Operations }
+  - { name: Innovation }
+  - { name: Group }
+  - { name: Intelligence }
+  - { name: Paper Correction, description: 'AI marking of handwritten answer sheets (EXAM Vision service, exam-vision/). Claude suggests; teachers approve.' }
+paths: {}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    deviceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: 'hsd_… device token (shown once at registration)'
+      description: 'GPS devices only. Sent by the device on POST /v1/location; never a user token.'
+  parameters:
+    Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+    PageSize: { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 25 } }
+    Search: { name: q, in: query, description: Free-text search, schema: { type: string, maxLength: 100 } }
+    Sort: { name: sort, in: query, description: Sort key (allow-listed per endpoint), schema: { type: string } }
+    Dir: { name: dir, in: query, schema: { type: string, enum: [asc, desc], default: asc } }
+    CampusId: { name: campusId, in: query, description: Limit to one campus (omit for group view), schema: { type: string, format: uuid } }
+    IdPath: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    StudentIdPath:
+      name: id
+      in: path
+      required: true
+      description: Student UUID or admission number (e.g. HS-2026-1041)
+      schema: { type: string }
+  schemas:
+    Envelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data: {}
+        message: { type: string, example: Student retrieved successfully }
+    PageMeta:
+      type: object
+      properties:
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+        totalPages: { type: integer }
+    Error:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        message: { type: string, example: Student not found }
+        error: { type: string, example: STUDENT_NOT_FOUND }
+        details:
+          type: array
+          items: { type: object, properties: { field: { type: string }, message: { type: string } } }
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        fullName: { type: string }
+        title: { type: string, nullable: true }
+        role:
+          type: object
+          properties:
+            key: { type: string, example: parent }
+            name: { type: string }
+            scope: { type: string, enum: [school, class, family, self] }
+            homeRoute: { type: string }
+        permissions: { type: array, items: { type: string } }
+        employeeId: { type: string, nullable: true }
+        parentId: { type: string, nullable: true }
+        studentId: { type: string, nullable: true }
+    StudentRow:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        admissionNo: { type: string, example: HS-2026-1041 }
+        fullName: { type: string, example: Aditya Kumar }
+        grade: { type: string, example: Grade 5 }
+        section: { type: string, example: A }
+        house: { type: string }
+        campusCode: { type: string }
+        attendance: { type: integer, nullable: true, description: '% present or late this academic year' }
+        average: { type: integer, nullable: true, description: Latest term mean score }
+        trend: { type: integer }
+        risk: { type: string, enum: [On Track, Watch, Developing Risk, At Risk] }
+        feeStatus: { type: string, enum: [Paid, Partial, Pending, Overdue] }
+        today: { type: string, enum: [present, absent, late, leave, unmarked] }
+        parentName: { type: string, nullable: true }
+        busRoute: { type: string, nullable: true }
+        trackingStatus: { type: string, nullable: true }
+    CurrentLocation:
+      type: object
+      properties:
+        studentId: { type: string, format: uuid }
+        admissionNo: { type: string }
+        fullName: { type: string }
+        trackingEnabled: { type: boolean }
+        trackingStatus: { type: string, enum: [active, paused, offline, disabled] }
+        displayStatus: { type: string, enum: [Tracking Active, Tracking Paused, Tracking Disabled, Offline, No Location Yet] }
+        latitude: { type: number, example: 11.0168 }
+        longitude: { type: number, example: 76.9558 }
+        accuracy: { type: number, nullable: true, description: metres }
+        locationStatus: { type: string, enum: [at_home, in_transit, at_school, on_trip, unknown] }
+        locationStatusLabel: { type: string }
+        placeLabel: { type: string, nullable: true }
+        recordedAt: { type: string, format: date-time }
+        isStale: { type: boolean, description: No update for 30+ minutes }
+        isSampleData: { type: boolean }
+    LocationInput:
+      type: object
+      required: [latitude, longitude]
+      properties:
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+        accuracy: { type: number }
+        locationStatus: { type: string, enum: [at_home, in_transit, at_school, on_trip, unknown], description: Omit to classify automatically from geofences }
+        placeLabel: { type: string }
+        source: { type: string, enum: [device, bus, gate, manual, sample] }
+        batteryPct: { type: integer }
+        recordedAt: { type: string, format: date-time }
+    LocationHistory:
+      type: object
+      properties:
+        points:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              latitude: { type: number }
+              longitude: { type: number }
+              locationStatus: { type: string }
+              recordedAt: { type: string, format: date-time }
+        availableDays: { type: array, items: { type: object, properties: { date: { type: string }, points: { type: integer } } } }
+        summary: { type: object, properties: { count: { type: integer }, first: { type: string }, last: { type: string }, distanceKm: { type: number } } }
+  responses:
+    Ok:
+      description: Success
+      content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
+    Created:
+      description: Created
+      content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
+    Paged:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties: { meta: { $ref: '#/components/schemas/PageMeta' } }
+    BadRequest:
+      description: Validation failed
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthorized:
+      description: Missing, invalid or expired access token
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: The caller lacks the required permission
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: Not found (or outside the caller's data scope)
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    RateLimited:
+      description: Too many requests
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+security:
+  - bearerAuth: []

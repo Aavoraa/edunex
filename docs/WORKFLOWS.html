@@ -1,0 +1,1443 @@
+
+<title>Edunex Role Workflows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --brand:#990033; --brand-hover:#B30042; --brand-strong:#5C001D; --wine:#3E0013;
+    --brand-tint:#FFF0F4; --brand-line:#F8C8D4;
+    --gold:#FEDB6E; --gold-deep:#B87A04; --gold-tint:#FFF9E6; --gold-line:#F7E5A8;
+    --teal:#0D7B66; --teal-tint:#EAF6F2; --teal-line:#B6DED2;
+    --amber:#C27E0A; --amber-tint:#FEF7EA; --amber-line:#F7DDB2;
+    --critical:#C2273B;
+    --bg:#F8F5F2; --bg-sunken:#F1ECE7; --surface:#FFFFFF; --surface-alt:#FCFAF8;
+    --text:#2C2C2C; --text-strong:#171717; --text-muted:#666666; --text-faint:#8E8E8E;
+    --border:#ECE5DF; --border-strong:#D9CEC5;
+    --hero-grad:linear-gradient(135deg,#5C001D 0%,#3E0013 100%);
+    --sh-1:0 1px 2px rgba(62,0,19,.06);
+    --sh-2:0 4px 16px rgba(62,0,19,.08);
+    --font-display:"Plus Jakarta Sans","Inter",system-ui,sans-serif;
+    --font-ui:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --font-mono:"JetBrains Mono","SFMono-Regular",Consolas,Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --brand:#E0467A; --brand-hover:#EC6B95; --brand-strong:#F59AB8; --wine:#2A0A16;
+      --brand-tint:rgba(224,70,122,.12); --brand-line:rgba(224,70,122,.32);
+      --gold:#FEDB6E; --gold-deep:#FEDB6E; --gold-tint:rgba(254,219,110,.1); --gold-line:rgba(254,219,110,.3);
+      --teal:#34B894; --teal-tint:rgba(52,184,148,.1); --teal-line:rgba(52,184,148,.32);
+      --amber:#E9A23B; --amber-tint:rgba(233,162,59,.1); --amber-line:rgba(233,162,59,.3);
+      --critical:#F07080;
+      --bg:#110B0D; --bg-sunken:#1E1519; --surface:#181114; --surface-alt:#1D1418;
+      --text:#D6CDD0; --text-strong:#F7F2F4; --text-muted:#A89CA1; --text-faint:#78696F;
+      --border:#2E2227; --border-strong:#3F3036;
+      --hero-grad:linear-gradient(135deg,#4A0A22 0%,#2A0A16 100%);
+      --sh-1:0 1px 2px rgba(0,0,0,.4); --sh-2:0 4px 16px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --brand:#E0467A; --brand-hover:#EC6B95; --brand-strong:#F59AB8; --wine:#2A0A16;
+    --brand-tint:rgba(224,70,122,.12); --brand-line:rgba(224,70,122,.32);
+    --gold:#FEDB6E; --gold-deep:#FEDB6E; --gold-tint:rgba(254,219,110,.1); --gold-line:rgba(254,219,110,.3);
+    --teal:#34B894; --teal-tint:rgba(52,184,148,.1); --teal-line:rgba(52,184,148,.32);
+    --amber:#E9A23B; --amber-tint:rgba(233,162,59,.1); --amber-line:rgba(233,162,59,.3);
+    --critical:#F07080;
+    --bg:#110B0D; --bg-sunken:#1E1519; --surface:#181114; --surface-alt:#1D1418;
+    --text:#D6CDD0; --text-strong:#F7F2F4; --text-muted:#A89CA1; --text-faint:#78696F;
+    --border:#2E2227; --border-strong:#3F3036;
+    --hero-grad:linear-gradient(135deg,#4A0A22 0%,#2A0A16 100%);
+    --sh-1:0 1px 2px rgba(0,0,0,.4); --sh-2:0 4px 16px rgba(0,0,0,.45);
+  }
+
+  body { background: var(--bg); color: var(--text); font-family: var(--font-ui); line-height: 1.6; margin: 0; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 0 72px; }
+  h1,h2,h3,h4 { font-family: var(--font-display); color: var(--text-strong); margin: 0; text-wrap: balance; line-height: 1.22; }
+  p { margin: 0; }
+  a { color: var(--brand); }
+  code, .mono { font-family: var(--font-mono); font-size: .86em; }
+  .eyebrow { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; color: var(--text-faint); }
+
+  /* ---- masthead ---- */
+  .mast { background: var(--hero-grad); color: #FCE4EC; padding-block: 56px 48px; border-bottom: 3px solid var(--gold); }
+  .mast .wrap { padding-block: 0; }
+  .mast .eyebrow { color: var(--gold); }
+  .mast h1 { color: #fff; font-size: clamp(30px, 5.4vw, 46px); font-weight: 800; letter-spacing: -.025em; margin-top: 12px; max-width: 18ch; }
+  .mast .lede { margin-top: 16px; max-width: 62ch; font-size: 16px; color: #F3D5DF; }
+  .mast-meta { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 28px; }
+  .mast-meta div { display: flex; flex-direction: column; gap: 2px; }
+  .mast-meta dt { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: rgba(252,228,236,.62); }
+  .mast-meta dd { margin: 0; font-family: var(--font-mono); font-size: 13px; color: #fff; }
+
+  /* ---- sections ---- */
+  section { scroll-margin-top: 24px; }
+  .band { padding-block: 44px; border-top: 1px solid var(--border); }
+  .band:first-of-type { border-top: 0; }
+  .band > h2 { font-size: clamp(21px, 3vw, 27px); font-weight: 700; letter-spacing: -.02em; }
+  .band > .sub { color: var(--text-muted); margin-top: 8px; max-width: 68ch; }
+
+  /* ---- figures ---- */
+  figure { margin: 24px 0 0; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--sh-1); overflow: hidden; }
+  .fig-scroll { overflow-x: auto; padding: 20px; }
+  figure svg { display: block; max-width: 100%; height: auto; color: var(--text); }
+  figcaption { border-top: 1px solid var(--border); background: var(--surface-alt); padding: 12px 18px; font-size: 13px; color: var(--text-muted); }
+  figcaption b { color: var(--text-strong); font-weight: 600; }
+
+  /* ---- legend ---- */
+  .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px 24px; margin-top: 24px;
+            background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+  .legend .item { display: flex; gap: 11px; align-items: flex-start; }
+  .legend .swatch { flex: none; width: 34px; height: 22px; border-radius: 5px; margin-top: 2px; }
+  .legend .k { font-size: 13px; font-weight: 600; color: var(--text-strong); display: block; }
+  .legend .v { font-size: 12.5px; color: var(--text-muted); }
+
+  /* ---- role cards ---- */
+  .roles { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; margin-top: 24px; }
+  .rc { display: block; text-decoration: none; color: inherit; background: var(--surface); border: 1px solid var(--border);
+        border-radius: 12px; padding: 16px 16px 14px; border-left: 4px solid var(--rc, var(--brand)); box-shadow: var(--sh-1); }
+  .rc:hover { box-shadow: var(--sh-2); border-color: var(--border-strong); }
+  .rc .n { font-family: var(--font-display); font-weight: 700; font-size: 16px; color: var(--text-strong); }
+  .rc .who { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+  .rc .rt { font-family: var(--font-mono); font-size: 11.5px; color: var(--rc, var(--brand)); margin-top: 10px; display: block; }
+
+  /* ---- role section header ---- */
+  .role { border-top: 1px solid var(--border); padding-top: 40px; margin-top: 8px; }
+  .role-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 14px; }
+  .role-head h3 { font-size: clamp(20px, 2.8vw, 25px); font-weight: 700; letter-spacing: -.02em; }
+  .tag { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; padding: 4px 9px; border-radius: 99px;
+         background: var(--brand-tint); color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand-line); white-space: nowrap; }
+  .tag--scope { background: var(--teal-tint); color: var(--teal); box-shadow: inset 0 0 0 1px var(--teal-line); }
+  .role-lede { color: var(--text-muted); margin-top: 10px; max-width: 70ch; }
+
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; margin-top: 20px;
+           background: var(--border); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .facts > div { background: var(--surface); padding: 12px 14px; }
+  .facts dt { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); font-weight: 600; }
+  .facts dd { margin: 4px 0 0; font-size: 13px; color: var(--text-strong); font-family: var(--font-mono); word-break: break-word; }
+
+  /* ---- notes ---- */
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 24px; }
+  .note h4 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); font-weight: 700; }
+  .note ul { margin: 10px 0 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  .note li { font-size: 14px; padding-left: 15px; position: relative; }
+  .note li::before { content: ""; position: absolute; left: 0; top: 9px; width: 5px; height: 5px; border-radius: 50%; background: var(--brand-line); }
+  .note li b { color: var(--text-strong); font-weight: 600; }
+  .note--gate li::before { background: var(--gold); }
+  .note--limit li::before { background: var(--critical); }
+
+  .callout { margin-top: 22px; background: var(--gold-tint); border: 1px solid var(--gold-line); border-left: 4px solid var(--gold);
+             border-radius: 10px; padding: 14px 16px; font-size: 14px; }
+  .callout b { color: var(--text-strong); }
+
+  /* ---- table ---- */
+  .tw { overflow-x: auto; margin-top: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 780px; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  thead th { position: sticky; top: 0; background: var(--surface-alt); font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+             color: var(--text-faint); font-weight: 700; border-bottom: 1px solid var(--border-strong); }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody th { font-weight: 600; color: var(--text-strong); white-space: nowrap; }
+  td.y { color: var(--teal); font-weight: 700; }
+  td.p { color: var(--amber); font-weight: 700; }
+  td.n { color: var(--text-faint); }
+
+  footer { border-top: 1px solid var(--border); margin-top: 48px; padding-top: 24px; font-size: 13px; color: var(--text-muted); }
+
+  @media (max-width: 560px) {
+    .mast { padding-block: 40px 34px; }
+    .facts { grid-template-columns: 1fr 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<header class="mast">
+  <div class="wrap">
+    <p class="eyebrow">Edunex Smart School 360 &middot; Operating manual</p>
+    <h1>How each role moves through the system</h1>
+    <p class="lede">Eleven roles share one REST API and one database. What separates them is not a different
+      application &mdash; it is the <b>permission set</b> checked on every request and the <b>data scope</b> applied
+      inside every query. This document traces the working day of each role: where they land, what they touch,
+      where their work is handed to someone else, and where the system refuses them.</p>
+    <dl class="mast-meta">
+      <div><dt>Roles</dt><dd>11</dd></div>
+      <div><dt>Demo accounts</dt><dd>13</dd></div>
+      <div><dt>Data scopes</dt><dd>school / class / family / self</dd></div>
+      <div><dt>Source of truth</dt><dd>backend/src/config/rbac.ts</dd></div>
+    </dl>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section class="band" id="access-model">
+  <h2>One gate, four scopes</h2>
+  <p class="sub">Every role's day starts at the same place and narrows at the same two checkpoints. The API checks
+    <em>permissions</em>, never role names. Services then trim the result set to the role's scope. A record outside
+    scope returns <code>404</code>, not <code>403</code>, so its existence is never disclosed.</p>
+
+  <figure>
+    <div class="fig-scroll">
+      <svg viewBox="0 0 960 292" role="img" width="960"
+        aria-label="A request flows from sign-in to an access token, then a permission check, then a scope filter which resolves to one of four scopes: school sees every record, class sees assigned sections, family sees own children, self sees only the person's own record.">
+        <defs>
+          <marker id="au-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/>
+          </marker>
+          <marker id="au-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+          <marker id="au-c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--teal)"/>
+          </marker>
+        </defs>
+
+        <rect x="8" y="106" width="146" height="54" rx="9" fill="var(--brand)"/>
+        <text x="81" y="129" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">Sign in</text>
+        <text x="81" y="146" text-anchor="middle" font-size="10" fill="#FCE4EC" font-family="monospace">POST /auth/login</text>
+
+        <line x1="154" y1="133" x2="170" y2="133" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#au-a)"/>
+
+        <rect x="174" y="106" width="146" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="247" y="129" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text-strong)">Access token</text>
+        <text x="247" y="146" text-anchor="middle" font-size="10" fill="var(--text-muted)" font-family="monospace">JWT &middot; 15 min</text>
+
+        <line x1="320" y1="133" x2="336" y2="133" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#au-a)"/>
+
+        <rect x="340" y="106" width="146" height="54" rx="9" fill="none" stroke="var(--brand)" stroke-width="1.8"/>
+        <text x="413" y="129" text-anchor="middle" font-size="13" font-weight="700" fill="var(--brand)">Permission check</text>
+        <text x="413" y="146" text-anchor="middle" font-size="10" fill="var(--brand)" font-family="monospace">requirePermission</text>
+
+        <line x1="486" y1="133" x2="502" y2="133" stroke="var(--brand)" stroke-width="1.7" marker-end="url(#au-b)"/>
+
+        <rect x="506" y="106" width="146" height="54" rx="9" fill="none" stroke="var(--teal)" stroke-width="1.8"/>
+        <text x="579" y="129" text-anchor="middle" font-size="13" font-weight="700" fill="var(--teal)">Scope filter</text>
+        <text x="579" y="146" text-anchor="middle" font-size="10" fill="var(--teal)" font-family="monospace">access.service.ts</text>
+
+        <path d="M652 120 H 676 V 35 H 700" fill="none" stroke="var(--teal)" stroke-width="1.4" marker-end="url(#au-c)"/>
+        <path d="M652 128 H 686 V 99 H 700" fill="none" stroke="var(--teal)" stroke-width="1.4" marker-end="url(#au-c)"/>
+        <path d="M652 140 H 686 V 167 H 700" fill="none" stroke="var(--teal)" stroke-width="1.4" marker-end="url(#au-c)"/>
+        <path d="M652 148 H 676 V 231 H 700" fill="none" stroke="var(--teal)" stroke-width="1.4" marker-end="url(#au-c)"/>
+
+        <rect x="704" y="13" width="140" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="774" y="32" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text-strong)">school</text>
+        <text x="774" y="47" text-anchor="middle" font-size="10" fill="var(--text-muted)">every record</text>
+
+        <rect x="704" y="77" width="140" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="774" y="96" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text-strong)">class</text>
+        <text x="774" y="111" text-anchor="middle" font-size="10" fill="var(--text-muted)">assigned sections</text>
+
+        <rect x="704" y="145" width="140" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="774" y="164" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text-strong)">family</text>
+        <text x="774" y="179" text-anchor="middle" font-size="10" fill="var(--text-muted)">own children</text>
+
+        <rect x="704" y="209" width="140" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="774" y="228" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text-strong)">self</text>
+        <text x="774" y="243" text-anchor="middle" font-size="10" fill="var(--text-muted)">own record only</text>
+
+        <text x="413" y="87" text-anchor="middle" font-size="10.5" fill="var(--critical)" font-weight="600">missing permission &rarr; 403</text>
+        <text x="579" y="87" text-anchor="middle" font-size="10.5" fill="var(--critical)" font-weight="600">outside scope &rarr; 404</text>
+
+        <rect x="174" y="206" width="312" height="50" rx="9" fill="none" stroke="var(--text-faint)" stroke-width="1.2" stroke-dasharray="5 4"/>
+        <text x="330" y="227" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text-muted)">Refresh cookie &middot; httpOnly &middot; SameSite=Strict</text>
+        <text x="330" y="244" text-anchor="middle" font-size="10" fill="var(--text-faint)">rotated on use &mdash; reuse revokes the whole family</text>
+        <path d="M247 206 V 164" fill="none" stroke="var(--text-faint)" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#au-a)"/>
+      </svg>
+    </div>
+    <figcaption><b>Permission</b> decides whether the route answers at all; <b>scope</b> decides how much of the
+      answer the role may see. Every diagram that follows sits downstream of these two checkpoints.</figcaption>
+  </figure>
+
+  <div class="legend">
+    <div class="item"><span class="swatch" style="background:var(--brand)"></span><span><span class="k">Role action</span><span class="v">A person does something on a screen</span></span></div>
+    <div class="item"><span class="swatch" style="background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--border-strong)"></span><span><span class="k">Screen or record</span><span class="v">Where the work is done or stored</span></span></div>
+    <div class="item"><span class="swatch" style="background:var(--gold-tint);box-shadow:inset 0 0 0 1.5px var(--gold)"></span><span><span class="k">Automatic</span><span class="v">The system acts with nobody asking</span></span></div>
+    <div class="item"><span class="swatch" style="background:transparent;box-shadow:inset 0 0 0 1.5px var(--teal)"></span><span><span class="k">Hand-off</span><span class="v">Leaves this role, lands on another</span></span></div>
+    <div class="item"><span class="swatch" style="background:transparent;box-shadow:inset 0 0 0 1.5px var(--critical)"></span><span><span class="k">Refused</span><span class="v">Permission or scope blocks the path</span></span></div>
+    <div class="item"><span class="swatch" style="background:transparent;border:1.5px dashed var(--text-faint);border-radius:5px"></span><span><span class="k">Dashed</span><span class="v">Background, scheduled or out of band</span></span></div>
+  </div>
+</section>
+<section class="band" id="index">
+  <h2>The eleven roles</h2>
+  <p class="sub">Thirteen demo accounts cover eleven roles &mdash; Teacher and Parent each have a second account so
+    class-scope and family-scope isolation can be tested against a real peer. Every card jumps to that role's workflow.</p>
+  <div class="roles">
+    <a class="rc" href="#super-admin" style="--rc:var(--brand)"><span class="n">Super Admin</span><span class="who">System Administrator</span><span class="rt">/command-center &middot; school</span></a>
+    <a class="rc" href="#school-admin" style="--rc:var(--brand)"><span class="n">School Admin</span><span class="who">Anand Rao</span><span class="rt">/command-center &middot; school</span></a>
+    <a class="rc" href="#principal" style="--rc:var(--brand)"><span class="n">Principal</span><span class="who">Dr. Meera Krishnan</span><span class="rt">/command-center &middot; school</span></a>
+    <a class="rc" href="#management" style="--rc:var(--text-faint)"><span class="n">Management</span><span class="who">Mr. K. Srinivasan &middot; trustee</span><span class="rt">/command-center &middot; read only</span></a>
+    <a class="rc" href="#teacher" style="--rc:var(--teal)"><span class="n">Teacher</span><span class="who">Ms. Priya Raghavan &middot; Grade 5A</span><span class="rt">/teacher &middot; class</span></a>
+    <a class="rc" href="#hr" style="--rc:var(--amber)"><span class="n">HR</span><span class="who">Lakshmi Narayanan</span><span class="rt">/workforce &middot; school</span></a>
+    <a class="rc" href="#finance" style="--rc:var(--amber)"><span class="n">Finance</span><span class="who">Rajesh Iyer</span><span class="rt">/fees &middot; school</span></a>
+    <a class="rc" href="#office" style="--rc:var(--amber)"><span class="n">Office</span><span class="who">Kavitha S.</span><span class="rt">/admissions &middot; school</span></a>
+    <a class="rc" href="#staff" style="--rc:var(--gold-deep)"><span class="n">Non-Teaching Staff</span><span class="who">Murugan P.</span><span class="rt">/staff-self &middot; self</span></a>
+    <a class="rc" href="#parent" style="--rc:var(--teal)"><span class="n">Parent</span><span class="who">Ranjith Kumar &middot; 2 children</span><span class="rt">/parent-360 &middot; family</span></a>
+    <a class="rc" href="#student" style="--rc:var(--teal)"><span class="n">Student</span><span class="who">Aditya Kumar</span><span class="rt">/my-profile &middot; self</span></a>
+  </div>
+  <div class="callout"><b>Two roles look alike but are not.</b> School Admin holds every permission except the five
+    portal and self-service ones, and cannot create or grant Super Admin. Management holds the same <em>screens</em>
+    as the Principal but none of the <code>manage</code> or <code>approve</code> permissions &mdash; every leadership
+    page renders for them in read-only form.</div>
+</section>
+<section class="band" id="workflows">
+  <h2>Role workflows</h2>
+  <p class="sub">Each diagram follows one role from sign-in through the work only that role can do, and stops where
+    the work leaves them. Endpoints and status values are the ones in the code, not illustrations.</p>
+
+<div class="role" id="super-admin">
+  <div class="role-head"><h3>Super Admin</h3><span class="tag">permissions: *</span><span class="tag tag--scope">school scope</span></div>
+  <p class="role-lede">The only role that can mint another Super Admin, and the only role whose own permission set
+    cannot be edited &mdash; including by itself. Administration is its distinguishing work; everything else it can do,
+    the School Admin can do too.</p>
+  <dl class="facts">
+    <div><dt>Account</dt><dd>admin.demo@edunex.edu</dd></div>
+    <div><dt>Lands on</dt><dd>/command-center</dd></div>
+    <div><dt>Unique screens</dt><dd>/admin/users &middot; /admin/settings</dd></div>
+    <div><dt>Scope rule</dt><dd>all records, any campus</dd></div>
+  </dl>
+
+  <figure>
+    <div class="fig-scroll">
+      <svg viewBox="0 0 992 332" role="img" width="992"
+        aria-label="Super Admin signs in to the Command Center, then administers users: creating a user, changing a role or suspending an account which automatically revokes every session, editing role grants which clears the permission cache within thirty seconds, and saving system settings. Editing Super Admin grants is always refused.">
+        <defs>
+          <marker id="sa-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/></marker>
+          <marker id="sa-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--critical)"/></marker>
+        </defs>
+
+        <rect x="8" y="16" width="146" height="54" rx="9" fill="var(--brand)"/>
+        <text x="81" y="39" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">Sign in</text>
+        <text x="81" y="56" text-anchor="middle" font-size="10" fill="#FCE4EC" font-family="monospace">POST /auth/login</text>
+        <line x1="154" y1="43" x2="170" y2="43" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#sa-a)"/>
+
+        <rect x="174" y="16" width="146" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="247" y="39" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text-strong)">Command Center</text>
+        <text x="247" y="56" text-anchor="middle" font-size="10" fill="var(--text-muted)" font-family="monospace">11 KPI tiles</text>
+        <line x1="320" y1="43" x2="336" y2="43" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#sa-a)"/>
+
+        <rect x="340" y="16" width="146" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="413" y="39" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text-strong)">Users &amp; Roles</text>
+        <text x="413" y="56" text-anchor="middle" font-size="10" fill="var(--text-muted)" font-family="monospace">/admin/users</text>
+        <line x1="486" y1="43" x2="502" y2="43" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#sa-a)"/>
+
+        <rect x="506" y="16" width="146" height="54" rx="9" fill="var(--brand)"/>
+        <text x="579" y="39" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">Create user</text>
+        <text x="579" y="56" text-anchor="middle" font-size="10" fill="#FCE4EC" font-family="monospace">POST /users</text>
+        <line x1="652" y1="43" x2="668" y2="43" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#sa-a)"/>
+
+        <rect x="672" y="16" width="146" height="54" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="745" y="39" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--text-strong)">Grants from role</text>
+        <text x="745" y="56" text-anchor="middle" font-size="10" fill="var(--text-muted)">audited &middot; status active</text>
+
+        <path d="M413 70 V 125 H 502" fill="none" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#sa-a)"/>
+        <rect x="506" y="98" width="146" height="54" rx="9" fill="var(--brand)"/>
+        <text x="579" y="121" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Change role / Suspend</text>
+        <text x="579" y="138" text-anchor="middle" font-size="10" fill="#FCE4EC" font-family="monospace">PATCH /users/:id</text>
+        <line x1="652" y1="125" x2="668" y2="125" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#sa-a)"/>
+
+        <rect x="672" y="98" width="146" height="54" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="745" y="121" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--text-strong)">Sessions revoked</text>
+        <text x="745" y="138" text-anchor="middle" font-size="10" fill="var(--text-muted)">signed out everywhere</text>
+
+        <path d="M413 70 V 207 H 502" fill="none" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#sa-a)"/>
+        <text x="352" y="196" font-size="10" fill="var(--text-muted)">Roles tab</text>
+        <rect x="506" y="180" width="146" height="54" rx="9" fill="var(--brand)"/>
+        <text x="579" y="203" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Edit role grants</text>
+        <text x="579" y="220" text-anchor="middle" font-size="10" fill="#FCE4EC" font-family="monospace">PUT /roles/:id</text>
+        <line x1="652" y1="207" x2="668" y2="207" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#sa-a)"/>
+
+        <rect x="672" y="180" width="146" height="54" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="745" y="203" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--text-strong)">Cache cleared</text>
+        <text x="745" y="220" text-anchor="middle" font-size="10" fill="var(--text-muted)">live within 30 s</text>
+
+        <path d="M579 234 V 262" fill="none" stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#sa-r)"/>
+        <rect x="506" y="266" width="146" height="50" rx="9" fill="none" stroke="var(--critical)" stroke-width="1.6" stroke-dasharray="5 4"/>
+        <text x="579" y="287" text-anchor="middle" font-size="12" font-weight="700" fill="var(--critical)">Super Admin grants</text>
+        <text x="579" y="303" text-anchor="middle" font-size="10" fill="var(--critical)">403 &mdash; never editable</text>
+
+        <path d="M247 70 V 289 H 336" fill="none" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#sa-a)"/>
+        <rect x="340" y="266" width="146" height="50" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="413" y="287" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--text-strong)">System Settings</text>
+        <text x="413" y="303" text-anchor="middle" font-size="10" fill="var(--text-muted)" font-family="monospace">PUT /settings/:key</text>
+      </svg>
+    </div>
+    <figcaption>Administration is the Super Admin's distinguishing path. Two consequences are automatic and worth
+      knowing before you click: <b>changing a role or suspending an account signs that person out of every device</b>,
+      and a permission edit reaches all holders of that role within 30 seconds.</figcaption>
+  </figure>
+
+  <div class="cols">
+    <div class="note"><h4>Only this role can</h4><ul>
+      <li>Create a user whose role is <b>Super Admin</b>, or grant that role to an existing user.</li>
+      <li>Everything School Admin can do, plus the five portal and self-service permissions.</li>
+    </ul></div>
+    <div class="note note--limit"><h4>Refused even here</h4><ul>
+      <li><b>Editing Super Admin's own permission set</b> &mdash; the role always holds everything.</li>
+      <li><b>Changing your own role, or suspending yourself</b> &mdash; rejected as a self-change.</li>
+    </ul></div>
+    <div class="note note--gate"><h4>Automatic on save</h4><ul>
+      <li>Role change or suspension &rarr; <b>every session revoked</b>.</li>
+      <li>Permission edit &rarr; cache cleared, <b>audited</b>, applies within 30 s.</li>
+      <li>Opening the audit trail is <b>itself audited</b>.</li>
+    </ul></div>
+  </div>
+</div>
+
+<div class="role" id="school-admin">
+  <div class="role-head"><h3>School Admin</h3><span class="tag">all but 5 permissions</span><span class="tag tag--scope">school scope</span></div>
+  <p class="role-lede">Runs the school day to day with the full administrative surface. The difference from Super Admin
+    is narrow but absolute: it cannot create or grant the Super Admin role, and it holds none of the portal or
+    self-service permissions, so it has no Parent 360, no student portal, no payslip of its own.</p>
+  <dl class="facts">
+    <div><dt>Account</dt><dd>anand.rao.demo@edunex.edu</dd></div>
+    <div><dt>Lands on</dt><dd>/command-center</dd></div>
+    <div><dt>Withheld</dt><dd>parent_portal.use &middot; student_portal.use</dd></div>
+    <div><dt>Also withheld</dt><dd>fees.pay_own &middot; selfservice.use</dd></div>
+  </dl>
+
+  <figure>
+    <div class="fig-scroll">
+      <svg viewBox="0 0 992 206" role="img" width="992"
+        aria-label="School Admin creates a user and the request branches on the chosen role: any ordinary role is created normally, while choosing Super Admin is refused with a 403 that only a Super Admin can pass.">
+        <defs>
+          <marker id="sc-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/></marker>
+          <marker id="sc-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--critical)"/></marker>
+        </defs>
+
+        <rect x="8" y="74" width="146" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="81" y="97" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text-strong)">Users &amp; Roles</text>
+        <text x="81" y="114" text-anchor="middle" font-size="10" fill="var(--text-muted)" font-family="monospace">/admin/users</text>
+        <line x1="154" y1="101" x2="170" y2="101" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#sc-a)"/>
+
+        <rect x="174" y="74" width="146" height="54" rx="9" fill="var(--brand)"/>
+        <text x="247" y="97" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">Create user</text>
+        <text x="247" y="114" text-anchor="middle" font-size="10" fill="#FCE4EC" font-family="monospace">POST /users</text>
+
+        <path d="M320 92 H 360 V 43 H 400" fill="none" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#sc-a)"/>
+        <text x="330" y="36" font-size="10" fill="var(--text-muted)">any other role</text>
+        <path d="M320 110 H 360 V 159 H 400" fill="none" stroke="var(--critical)" stroke-width="1.5" marker-end="url(#sc-r)"/>
+        <text x="330" y="182" font-size="10" fill="var(--critical)">role = super_admin</text>
+
+        <rect x="404" y="16" width="160" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="484" y="39" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--text-strong)">Account created</text>
+        <text x="484" y="56" text-anchor="middle" font-size="10" fill="var(--text-muted)">audited &middot; temp password</text>
+
+        <rect x="404" y="132" width="160" height="54" rx="9" fill="none" stroke="var(--critical)" stroke-width="1.6" stroke-dasharray="5 4"/>
+        <text x="484" y="155" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--critical)">403 refused</text>
+        <text x="484" y="172" text-anchor="middle" font-size="10" fill="var(--critical)">only a Super Admin may grant it</text>
+
+        <line x1="564" y1="43" x2="596" y2="43" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#sc-a)"/>
+        <rect x="600" y="16" width="160" height="54" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="680" y="39" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--text-strong)">Role grants applied</text>
+        <text x="680" y="56" text-anchor="middle" font-size="10" fill="var(--text-muted)">from role_permissions</text>
+
+        <rect x="600" y="132" width="330" height="54" rx="9" fill="none" stroke="var(--text-faint)" stroke-width="1.2" stroke-dasharray="5 4"/>
+        <text x="765" y="154" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--text-muted)">Everything else matches Super Admin</text>
+        <text x="765" y="171" text-anchor="middle" font-size="10" fill="var(--text-faint)">settings, roles, approvals, group management, broadcasts</text>
+      </svg>
+    </div>
+    <figcaption>The whole difference between the two administrator roles, drawn: <b>one branch</b> in user creation
+      and role assignment. Every other administrative path is identical.</figcaption>
+  </figure>
+</div>
+<div class="role" id="principal">
+  <div class="role-head"><h3>Principal</h3><span class="tag">read + manage + approve</span><span class="tag tag--scope">school scope</span></div>
+  <p class="role-lede">The approvals hub. Four other roles prepare work that only the Principal can finish: HR's payroll
+    run, Finance's expenses and concessions, the office's certificates, and every inter-campus transfer. The Command
+    Center's <em>Pending Approvals</em> tile counts all of it in one number and drops into My Tasks.</p>
+  <dl class="facts">
+    <div><dt>Account</dt><dd>meera.krishnan.demo@edunex.edu</dd></div>
+    <div><dt>Lands on</dt><dd>/command-center</dd></div>
+    <div><dt>Holds alone</dt><dd>payroll.approve</dd></div>
+    <div><dt>Cannot reach</dt><dd>/admin/users &middot; /admin/settings</dd></div>
+  </dl>
+
+  <figure>
+    <div class="fig-scroll">
+      <svg viewBox="0 0 992 420" role="img" width="992"
+        aria-label="The Principal opens the Command Center, whose Pending Approvals tile leads to My Tasks. From there five approval queues branch out: payroll which is blocked if the approver also calculated it, finance expenses and concessions, HR leave and overtime, certificates which are blocked while a clearance check fails, and inter-campus transfers which require a separate completion step to actually move the student.">
+        <defs>
+          <marker id="pr-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/></marker>
+          <marker id="pr-t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--teal)"/></marker>
+          <marker id="pr-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--critical)"/></marker>
+        </defs>
+
+        <rect x="8" y="180" width="146" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="81" y="203" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text-strong)">Command Center</text>
+        <text x="81" y="220" text-anchor="middle" font-size="10" fill="var(--text-muted)">Pending Approvals</text>
+        <line x1="154" y1="207" x2="170" y2="207" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#pr-a)"/>
+
+        <rect x="174" y="180" width="146" height="54" rx="9" fill="var(--brand)"/>
+        <text x="247" y="203" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">My Tasks</text>
+        <text x="247" y="220" text-anchor="middle" font-size="10" fill="#FCE4EC" font-family="monospace">GET /tasks?status=open</text>
+
+        <path d="M320 198 H 352 V 43 H 384" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#pr-a)"/>
+        <path d="M320 202 H 362 V 125 H 384" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#pr-a)"/>
+        <path d="M320 207 H 384" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#pr-a)"/>
+        <path d="M320 212 H 362 V 289 H 384" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#pr-a)"/>
+        <path d="M320 216 H 352 V 371 H 384" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#pr-a)"/>
+
+        <rect x="388" y="16" width="168" height="54" rx="9" fill="var(--brand)"/>
+        <text x="472" y="39" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Approve payroll</text>
+        <text x="472" y="56" text-anchor="middle" font-size="10" fill="#FCE4EC" font-family="monospace">Under Review &rarr; Approved</text>
+        <line x1="556" y1="43" x2="588" y2="43" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#pr-a)"/>
+        <rect x="592" y="16" width="168" height="54" rx="9" fill="none" stroke="var(--teal)" stroke-width="1.7"/>
+        <text x="676" y="39" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--teal)">HR releases payslips</text>
+        <text x="676" y="56" text-anchor="middle" font-size="10" fill="var(--teal)">Released &rarr; Paid</text>
+        <path d="M472 70 V 92 H 592" fill="none" stroke="var(--critical)" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#pr-r)"/>
+        <rect x="596" y="78" width="330" height="30" rx="8" fill="none" stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <text x="761" y="98" text-anchor="middle" font-size="11" font-weight="600" fill="var(--critical)">Blocked if you also calculated the run &mdash; maker&ndash;checker</text>
+
+        <rect x="388" y="98" width="168" height="54" rx="9" fill="var(--brand)"/>
+        <text x="472" y="121" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Approve expense</text>
+        <text x="472" y="138" text-anchor="middle" font-size="10" fill="#FCE4EC" font-family="monospace">review &rarr; approve</text>
+        <line x1="556" y1="125" x2="588" y2="125" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#pr-a)"/>
+        <rect x="592" y="98" width="168" height="54" rx="9" fill="none" stroke="var(--teal)" stroke-width="1.7"/>
+        <text x="676" y="121" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--teal)">Finance pays</text>
+        <text x="676" y="138" text-anchor="middle" font-size="10" fill="var(--teal)">Approved &rarr; Paid</text>
+
+        <rect x="388" y="180" width="168" height="54" rx="9" fill="var(--brand)"/>
+        <text x="472" y="203" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Approve leave / overtime</text>
+        <text x="472" y="220" text-anchor="middle" font-size="10" fill="#FCE4EC" font-family="monospace">hr.approve</text>
+        <line x1="556" y1="207" x2="588" y2="207" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#pr-a)"/>
+        <rect x="592" y="180" width="168" height="54" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="676" y="200" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Roster flagged</text>
+        <text x="676" y="217" text-anchor="middle" font-size="10" fill="var(--text-muted)">cover needed &middot; balance cut</text>
+        <text x="676" y="230" text-anchor="middle" font-size="10" fill="var(--text-muted)">attendance set On Leave</text>
+
+        <rect x="388" y="262" width="168" height="54" rx="9" fill="var(--brand)"/>
+        <text x="472" y="285" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Approve certificate</text>
+        <text x="472" y="302" text-anchor="middle" font-size="10" fill="#FCE4EC" font-family="monospace">review &rarr; approve &rarr; issue</text>
+        <line x1="556" y1="289" x2="588" y2="289" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#pr-a)"/>
+        <rect x="592" y="262" width="168" height="54" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="676" y="285" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">QR code minted</text>
+        <text x="676" y="302" text-anchor="middle" font-size="10" fill="var(--text-muted)">publicly verifiable</text>
+        <rect x="778" y="262" width="150" height="54" rx="9" fill="none" stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <text x="853" y="283" text-anchor="middle" font-size="11" font-weight="700" fill="var(--critical)">Clearance failing</text>
+        <text x="853" y="299" text-anchor="middle" font-size="10" fill="var(--critical)">approval blocked</text>
+
+        <rect x="388" y="344" width="168" height="54" rx="9" fill="var(--brand)"/>
+        <text x="472" y="367" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Approve transfer</text>
+        <text x="472" y="384" text-anchor="middle" font-size="10" fill="#FCE4EC" font-family="monospace">Submitted &rarr; Approved</text>
+        <line x1="556" y1="371" x2="588" y2="371" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#pr-a)"/>
+        <rect x="592" y="344" width="168" height="54" rx="9" fill="var(--brand)"/>
+        <text x="676" y="367" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Complete &middot; pick section</text>
+        <text x="676" y="384" text-anchor="middle" font-size="10" fill="#FCE4EC" font-family="monospace">&rarr; Completed</text>
+        <line x1="760" y1="371" x2="792" y2="371" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#pr-a)"/>
+        <rect x="796" y="344" width="150" height="54" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="871" y="364" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--text-strong)">Student moved</text>
+        <text x="871" y="379" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">old transport dropped</text>
+        <text x="871" y="391" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">guardians notified</text>
+      </svg>
+    </div>
+    <figcaption>Five approval queues, one inbox. Two carry gates that refuse an otherwise valid approval:
+      <b>maker&ndash;checker</b> on payroll, and a <b>failing clearance check</b> on certificates. Note the last row &mdash;
+      approving a transfer records the decision only; the student does not move until the separate
+      <b>Complete</b> step picks a destination section.</figcaption>
+  </figure>
+
+  <div class="cols">
+    <div class="note"><h4>Also the Principal's alone</h4><ul>
+      <li><b>Emergency broadcast</b> &mdash; bypasses quiet hours and per-user notification settings, cannot be recalled.</li>
+      <li>An Emergency, Lockdown or Evacuation broadcast <b>auto-opens a Critical incident</b> owned by the sender.</li>
+      <li><b>Early Warning review</b> &mdash; accept opens an intervention with a named owner; dismiss suppresses that cause for 30 days.</li>
+    </ul></div>
+    <div class="note note--limit"><h4>Refused</h4><ul>
+      <li><b>User administration</b> and <b>system settings</b> &mdash; those belong to the two admin roles.</li>
+      <li>Approving a payroll run <b>they calculated themselves</b>.</li>
+    </ul></div>
+  </div>
+</div>
+<div class="role" id="management">
+  <div class="role-head"><h3>Management</h3><span class="tag">read only</span><span class="tag tag--scope">school scope</span></div>
+  <p class="role-lede">The trustee's view. Management reaches almost every leadership screen and can read everything
+    on it, but holds no <code>manage</code> and no <code>approve</code> permission anywhere in the system. The screens
+    are the same; the buttons are gone. Its natural output is an export, not a decision.</p>
+  <dl class="facts">
+    <div><dt>Account</dt><dd>srinivasan.demo@edunex.edu</dd></div>
+    <div><dt>Lands on</dt><dd>/command-center</dd></div>
+    <div><dt>Own reports</dt><dd>daily-brief &middot; campus-comparison</dd></div>
+    <div><dt>Tracking</dt><dd>read all + full history</dd></div>
+  </dl>
+
+  <figure>
+    <div class="fig-scroll">
+      <svg viewBox="0 0 992 290" role="img" width="992"
+        aria-label="Management reads the Command Center and branches into the group dashboard, analytics and reports, and the audit trail, each ending in a CSV export. Three actions are refused everywhere: approvals, edits, and emergency broadcast.">
+        <defs>
+          <marker id="mg-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/></marker>
+          <marker id="mg-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--critical)"/></marker>
+        </defs>
+
+        <rect x="8" y="98" width="146" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="81" y="121" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text-strong)">Command Center</text>
+        <text x="81" y="138" text-anchor="middle" font-size="10" fill="var(--text-muted)">no Emergency button</text>
+
+        <path d="M154 116 H 186 V 43 H 218" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#mg-a)"/>
+        <path d="M154 125 H 218" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#mg-a)"/>
+        <path d="M154 134 H 186 V 207 H 218" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#mg-a)"/>
+
+        <rect x="222" y="16" width="168" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="306" y="39" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--text-strong)">Group Dashboard</text>
+        <text x="306" y="56" text-anchor="middle" font-size="10" fill="var(--text-muted)">8 campus metrics</text>
+        <line x1="390" y1="43" x2="422" y2="43" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#mg-a)"/>
+        <rect x="426" y="16" width="168" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="510" y="39" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--text-strong)">Campus Comparison</text>
+        <text x="510" y="56" text-anchor="middle" font-size="10" fill="var(--text-muted)">radar + targets</text>
+
+        <rect x="222" y="98" width="168" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="306" y="121" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--text-strong)">Analytics</text>
+        <text x="306" y="138" text-anchor="middle" font-size="10" fill="var(--text-muted)">7 subject areas</text>
+        <line x1="390" y1="125" x2="422" y2="125" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#mg-a)"/>
+        <rect x="426" y="98" width="168" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="510" y="121" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--text-strong)">Reports catalogue</text>
+        <text x="510" y="138" text-anchor="middle" font-size="10" fill="var(--text-muted)">daily brief &middot; board pack</text>
+
+        <rect x="222" y="180" width="168" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="306" y="203" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--text-strong)">Audit Trail</text>
+        <text x="306" y="220" text-anchor="middle" font-size="10" fill="var(--text-muted)">every action, every role</text>
+        <line x1="390" y1="207" x2="422" y2="207" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#mg-a)"/>
+        <rect x="426" y="180" width="168" height="54" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="510" y="203" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Your view is logged</text>
+        <text x="510" y="220" text-anchor="middle" font-size="10" fill="var(--text-muted)">reading the log writes to it</text>
+
+        <path d="M594 43 H 626 V 116 H 658" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#mg-a)"/>
+        <path d="M594 125 H 658" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#mg-a)"/>
+        <rect x="662" y="98" width="146" height="54" rx="9" fill="var(--brand)"/>
+        <text x="735" y="121" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">Export CSV</text>
+        <text x="735" y="138" text-anchor="middle" font-size="10" fill="#FCE4EC">the role's real output</text>
+
+        <rect x="222" y="252" width="586" height="34" rx="9" fill="none" stroke="var(--critical)" stroke-width="1.6" stroke-dasharray="5 4"/>
+        <text x="515" y="274" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--critical)">Refused everywhere: approve &middot; edit &middot; broadcast &middot; run a signal check &middot; administer users</text>
+        <path d="M306 234 V 248" fill="none" stroke="var(--critical)" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#mg-r)"/>
+      </svg>
+    </div>
+    <figcaption>Management's path always ends at a read or an export. The dashed band is the whole role boundary:
+      the screens load, the mutating controls are absent, and the API would refuse them regardless.</figcaption>
+  </figure>
+
+  <div class="callout"><b>A quirk worth knowing.</b> The seeded My Tasks queue assigns the same leadership task list to
+    all four leadership accounts, so a Management user sees rows such as &ldquo;Approve payroll inputs&rdquo;. Opening
+    one is fine; the action behind it returns 403 for this role. The task list is demo seed data, not a permission grant.</div>
+</div>
+
+<div class="role" id="teacher">
+  <div class="role-head"><h3>Teacher</h3><span class="tag">academics + assessments</span><span class="tag tag--scope">class scope</span></div>
+  <p class="role-lede">The busiest write path in the system. A teacher sees only students in sections they teach or are
+    class teacher of &mdash; and marking attendance is the single action that fans out furthest: parent alerts leave within
+    the minute, and the Early Warning rules run against the fresh data on the same save.</p>
+  <dl class="facts">
+    <div><dt>Accounts</dt><dd>priya.raghavan &middot; ganesh.venkat</dd></div>
+    <div><dt>Lands on</dt><dd>/teacher</dd></div>
+    <div><dt>Sees</dt><dd>assigned sections only</dd></div>
+    <div><dt>No tracking history</dt><dd>live position only</dd></div>
+  </dl>
+
+  <figure>
+    <div class="fig-scroll">
+      <svg viewBox="0 0 992 420" role="img" width="992"
+        aria-label="A teacher opens the dashboard and marks attendance, which saves the register and automatically sends WhatsApp alerts to absent students' parents and raises Early Warning signals. The teacher then reviews a signal, accepting it to open an intervention or dismissing it. Separate paths cover lesson plans awaiting approval, homework, assessment marks which cannot be finalised at class scope, and tracking which shows live position but refuses history.">
+        <defs>
+          <marker id="te-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/></marker>
+          <marker id="te-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--gold)"/></marker>
+          <marker id="te-t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--teal)"/></marker>
+          <marker id="te-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--critical)"/></marker>
+        </defs>
+
+        <rect x="8" y="98" width="146" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="81" y="118" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text-strong)">Teacher Dashboard</text>
+        <text x="81" y="134" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">classes &middot; to mark</text>
+        <text x="81" y="146" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">marks pending &middot; to watch</text>
+
+        <path d="M154 107 H 178 V 43 H 202" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#te-a)"/>
+        <path d="M154 125 H 202" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#te-a)"/>
+        <path d="M154 143 H 178 V 289 H 202" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#te-a)"/>
+        <path d="M81 152 V 371 H 202" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#te-a)"/>
+
+        <rect x="206" y="16" width="160" height="54" rx="9" fill="var(--brand)"/>
+        <text x="286" y="39" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Mark attendance</text>
+        <text x="286" y="56" text-anchor="middle" font-size="9.5" fill="#FCE4EC" font-family="monospace">present/late/absent/leave</text>
+        <line x1="366" y1="43" x2="398" y2="43" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#te-g)"/>
+        <rect x="402" y="16" width="160" height="54" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="482" y="39" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Parents alerted</text>
+        <text x="482" y="56" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">WhatsApp &middot; cannot be recalled</text>
+        <line x1="562" y1="43" x2="594" y2="43" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#te-g)"/>
+        <rect x="598" y="16" width="160" height="54" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="678" y="39" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Signals raised</text>
+        <text x="678" y="56" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">rules run on this save</text>
+        <path d="M678 70 V 98" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#te-a)"/>
+
+        <rect x="598" y="98" width="160" height="54" rx="9" fill="var(--brand)"/>
+        <text x="678" y="121" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Review signal</text>
+        <text x="678" y="138" text-anchor="middle" font-size="9.5" fill="#FCE4EC">accept or dismiss</text>
+        <path d="M758 116 H 786 V 43 H 814" fill="none" stroke="var(--teal)" stroke-width="1.5" marker-end="url(#te-t)"/>
+        <path d="M758 134 H 786 V 207 H 814" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#te-a)"/>
+        <rect x="818" y="16" width="160" height="54" rx="9" fill="none" stroke="var(--teal)" stroke-width="1.7"/>
+        <text x="898" y="36" text-anchor="middle" font-size="12" font-weight="700" fill="var(--teal)">Intervention opens</text>
+        <text x="898" y="52" text-anchor="middle" font-size="9.5" fill="var(--teal)">named owner + review date</text>
+        <rect x="818" y="180" width="160" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="898" y="200" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Dismissed</text>
+        <text x="898" y="216" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">reason logged</text>
+        <text x="898" y="228" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">suppressed 30 days</text>
+
+        <rect x="206" y="98" width="160" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="286" y="118" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--text-strong)">Lesson plan</text>
+        <text x="286" y="135" text-anchor="middle" font-size="9.5" fill="var(--text-muted)" font-family="monospace">Draft &rarr; Submitted</text>
+        <line x1="366" y1="125" x2="398" y2="125" stroke="var(--teal)" stroke-width="1.5" marker-end="url(#te-t)"/>
+        <rect x="402" y="98" width="160" height="54" rx="9" fill="none" stroke="var(--teal)" stroke-width="1.7"/>
+        <text x="482" y="118" text-anchor="middle" font-size="12" font-weight="700" fill="var(--teal)">Reviewer approves</text>
+        <text x="482" y="135" text-anchor="middle" font-size="9.5" fill="var(--teal)">or returns it rejected</text>
+
+        <rect x="206" y="180" width="160" height="54" rx="9" fill="var(--brand)"/>
+        <text x="286" y="200" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Set homework</text>
+        <text x="286" y="217" text-anchor="middle" font-size="9.5" fill="#FCE4EC" font-family="monospace">Draft &middot; Open &middot; Closed</text>
+        <line x1="366" y1="207" x2="398" y2="207" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#te-g)"/>
+        <rect x="402" y="180" width="160" height="54" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="482" y="203" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Parents notified</text>
+        <text x="482" y="220" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">reminders on request</text>
+
+        <rect x="206" y="262" width="160" height="54" rx="9" fill="var(--brand)"/>
+        <text x="286" y="282" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Enter marks</text>
+        <text x="286" y="299" text-anchor="middle" font-size="9.5" fill="#FCE4EC" font-family="monospace">save &middot; send to moderation</text>
+        <line x1="366" y1="289" x2="398" y2="289" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#te-a)"/>
+        <rect x="402" y="262" width="160" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="482" y="285" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Moderation</text>
+        <text x="482" y="302" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">every student must be filled</text>
+        <line x1="562" y1="289" x2="594" y2="289" stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#te-r)"/>
+        <rect x="598" y="262" width="160" height="54" rx="9" fill="none" stroke="var(--critical)" stroke-width="1.6" stroke-dasharray="5 4"/>
+        <text x="678" y="285" text-anchor="middle" font-size="12" font-weight="700" fill="var(--critical)">Cannot finalise</text>
+        <text x="678" y="302" text-anchor="middle" font-size="9.5" fill="var(--critical)">needs school scope</text>
+
+        <rect x="206" y="344" width="160" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="286" y="367" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--text-strong)">Track a student</text>
+        <text x="286" y="384" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">assigned classes only</text>
+        <line x1="366" y1="371" x2="398" y2="371" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#te-a)"/>
+        <rect x="402" y="344" width="160" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="482" y="367" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Live position</text>
+        <text x="482" y="384" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">refreshed every 60 s</text>
+        <line x1="562" y1="371" x2="594" y2="371" stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#te-r)"/>
+        <rect x="598" y="344" width="160" height="54" rx="9" fill="none" stroke="var(--critical)" stroke-width="1.6" stroke-dasharray="5 4"/>
+        <text x="678" y="367" text-anchor="middle" font-size="12" font-weight="700" fill="var(--critical)">No location history</text>
+        <text x="678" y="384" text-anchor="middle" font-size="9.5" fill="var(--critical)">authorised staff only</text>
+      </svg>
+    </div>
+    <figcaption>One save, three consequences. Marking attendance writes the register, <b>sends parent alerts that cannot
+      be recalled</b>, and runs the Early Warning rules &mdash; which is why the save is behind a confirmation whenever the
+      register is backdated or carries new absences.</figcaption>
+  </figure>
+
+  <div class="cols">
+    <div class="note"><h4>Where the AI Co-Pilot fits</h4><ul>
+      <li>Reads only <b>your</b> classes: objectives, approved question bank, results, attendance, homework.</li>
+      <li>Produces a draft &mdash; lesson, worksheet, quiz, report comments, parent message, weekly brief.</li>
+      <li>Nothing is sent automatically. <b>A named teacher approves</b> before anything is published.</li>
+    </ul></div>
+    <div class="note note--limit"><h4>Class scope in practice</h4><ul>
+      <li>No Command Center and no attendance analytics &mdash; both need school-wide student read.</li>
+      <li>A student outside your sections returns <b>404</b>, so you cannot tell whether they exist.</li>
+      <li>Read-only on profiles: no edits, no medical or counselling notes.</li>
+    </ul></div>
+    <div class="note"><h4>Their own HR record</h4><ul>
+      <li>A teacher is an employee too: <b>Staff Self-Service</b> shows their own roster, attendance, leave balance, overtime and payslips.</li>
+      <li>Self-scoped like every other holder &mdash; the <code>/me/&hellip;</code> routes resolve the signed-in employee and take no id, so one teacher can never read another's record.</li>
+      <li>Leave still goes to <b>HR</b> for approval, and the payslip appears only once payroll is released.</li>
+    </ul></div>
+  </div>
+</div>
+<div class="role" id="hr">
+  <div class="role-head"><h3>HR</h3><span class="tag">workforce + payroll prep</span><span class="tag tag--scope">school scope</span></div>
+  <p class="role-lede">HR owns the employee record from joining to payslip, and approves leave and overtime. It prepares
+    payroll but deliberately cannot approve it &mdash; that permission sits with the Principal, and a second rule stops
+    whoever calculated a run from approving it even if they hold both.</p>
+  <dl class="facts">
+    <div><dt>Account</dt><dd>lakshmi.n.demo@edunex.edu</dd></div>
+    <div><dt>Lands on</dt><dd>/workforce</dd></div>
+    <div><dt>Holds</dt><dd>hr.approve &middot; payroll.manage</dd></div>
+    <div><dt>Does not hold</dt><dd>payroll.approve</dd></div>
+  </dl>
+
+  <figure>
+    <div class="fig-scroll">
+      <svg viewBox="0 0 992 300" role="img" width="992"
+        aria-label="The payroll run advances through seven statuses: Draft, Inputs, Calculated, Under Review, Approved, Released and Paid. HR performs every step except approval, which is handed to the Principal. A return path sends the run from Under Review back to Inputs. Approved leave, overtime, allowances and reimbursements feed into the Calculated step, and marking the run paid flips overtime and reimbursements to Paid.">
+        <defs>
+          <marker id="hr-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/></marker>
+          <marker id="hr-t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--teal)"/></marker>
+          <marker id="hr-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--gold)"/></marker>
+        </defs>
+
+        <text x="8" y="28" font-size="11" font-weight="700" fill="var(--text-faint)" letter-spacing="1">INPUTS THAT ARRIVE WITHOUT RE-KEYING</text>
+        <rect x="8" y="38" width="118" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="67" y="57" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text-strong)">Attendance</text>
+        <text x="67" y="72" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">marked daily</text>
+        <rect x="134" y="38" width="118" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="193" y="57" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text-strong)">Leave</text>
+        <text x="193" y="72" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">Approved only</text>
+        <rect x="260" y="38" width="118" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="319" y="57" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text-strong)">Overtime</text>
+        <text x="319" y="72" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">Approved only</text>
+        <rect x="386" y="38" width="118" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="445" y="57" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text-strong)">Allowances</text>
+        <text x="445" y="72" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">Approved only</text>
+        <rect x="512" y="38" width="130" height="44" rx="8" fill="none" stroke="var(--teal)" stroke-width="1.6"/>
+        <text x="577" y="57" text-anchor="middle" font-size="11" font-weight="700" fill="var(--teal)">Reimbursements</text>
+        <text x="577" y="72" text-anchor="middle" font-size="9.5" fill="var(--teal)">from Finance</text>
+
+        <path d="M67 82 V 104 H 300 V 140" fill="none" stroke="var(--text-faint)" stroke-width="1.3"/>
+        <path d="M193 82 V 104" fill="none" stroke="var(--text-faint)" stroke-width="1.3"/>
+        <path d="M319 82 V 104" fill="none" stroke="var(--text-faint)" stroke-width="1.3"/>
+        <path d="M445 82 V 104" fill="none" stroke="var(--text-faint)" stroke-width="1.3"/>
+        <path d="M577 82 V 104 H 300" fill="none" stroke="var(--teal)" stroke-width="1.3"/>
+        <path d="M300 104 V 136" fill="none" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#hr-a)"/>
+
+        <rect x="8" y="140" width="128" height="52" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="72" y="163" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Draft</text>
+        <text x="72" y="179" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">run opened</text>
+        <line x1="136" y1="166" x2="156" y2="166" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#hr-a)"/>
+
+        <rect x="160" y="140" width="128" height="52" rx="9" fill="var(--brand)"/>
+        <text x="224" y="163" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Inputs</text>
+        <text x="224" y="179" text-anchor="middle" font-size="9.5" fill="#FCE4EC">HR collects</text>
+        <line x1="288" y1="166" x2="308" y2="166" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#hr-a)"/>
+
+        <rect x="312" y="140" width="128" height="52" rx="9" fill="var(--brand)"/>
+        <text x="376" y="163" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Calculated</text>
+        <text x="376" y="179" text-anchor="middle" font-size="9.5" fill="#FCE4EC">payslips drafted</text>
+        <line x1="440" y1="166" x2="460" y2="166" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#hr-a)"/>
+
+        <rect x="464" y="140" width="128" height="52" rx="9" fill="var(--brand)"/>
+        <text x="528" y="163" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Under Review</text>
+        <text x="528" y="179" text-anchor="middle" font-size="9.5" fill="#FCE4EC">HR submits</text>
+        <line x1="592" y1="166" x2="612" y2="166" stroke="var(--teal)" stroke-width="1.7" marker-end="url(#hr-t)"/>
+
+        <rect x="616" y="140" width="128" height="52" rx="9" fill="none" stroke="var(--teal)" stroke-width="1.8"/>
+        <text x="680" y="163" text-anchor="middle" font-size="12" font-weight="700" fill="var(--teal)">Approved</text>
+        <text x="680" y="179" text-anchor="middle" font-size="9.5" fill="var(--teal)">Principal only</text>
+        <line x1="744" y1="166" x2="764" y2="166" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#hr-a)"/>
+
+        <rect x="768" y="140" width="106" height="52" rx="9" fill="var(--brand)"/>
+        <text x="821" y="163" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Released</text>
+        <text x="821" y="179" text-anchor="middle" font-size="9.5" fill="#FCE4EC">payslips out</text>
+        <line x1="874" y1="166" x2="890" y2="166" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#hr-a)"/>
+
+        <rect x="894" y="140" width="90" height="52" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="939" y="163" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text-strong)">Paid</text>
+        <text x="939" y="179" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">terminal</text>
+
+        <path d="M528 192 V 214 H 224 V 196" fill="none" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#hr-a)"/>
+        <text x="376" y="230" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--amber)">return for changes &mdash; note required, approval cleared</text>
+
+        <path d="M939 192 V 250 H 600" fill="none" stroke="var(--gold)" stroke-width="1.4" marker-end="url(#hr-g)"/>
+        <rect x="360" y="234" width="236" height="46" rx="8" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.4"/>
+        <text x="478" y="253" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text-strong)">Overtime &amp; reimbursements</text>
+        <text x="478" y="269" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">flip Approved &rarr; Paid automatically</text>
+
+        <rect x="616" y="196" width="128" height="40" rx="8" fill="none" stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <text x="680" y="213" text-anchor="middle" font-size="10" font-weight="700" fill="var(--critical)">maker&ndash;checker</text>
+        <text x="680" y="227" text-anchor="middle" font-size="9" fill="var(--critical)">calculator &ne; approver</text>
+      </svg>
+    </div>
+    <figcaption>Seven statuses, one hand-off. HR drives every step <b>except Approved</b>, which requires the
+      Principal's <code>payroll.approve</code>. Releasing afterwards accepts either permission, so HR can finish the run
+      once the decision is recorded.</figcaption>
+  </figure>
+
+  <div class="cols">
+    <div class="note"><h4>Approving leave does four things</h4><ul>
+      <li>Consumes the employee's <b>leave balance</b>.</li>
+      <li>Writes staff attendance to <b>On Leave</b> across the range, clearing any check-in.</li>
+      <li>Flips overlapping roster lines to <b>Cover needed</b>.</li>
+      <li>Notifies the requester &mdash; the response names how many roster lines now need cover.</li>
+    </ul></div>
+    <div class="note note--limit"><h4>Guard rails on submission</h4><ul>
+      <li>Leave: not more than 30 days retrospective, not more than 180 ahead, Sundays excluded, balance checked.</li>
+      <li>Overtime: no future dates, 60 days old at most, 16 hours a day at most, half-hour steps.</li>
+    </ul></div>
+  </div>
+</div>
+
+<div class="role" id="finance">
+  <div class="role-head"><h3>Finance</h3><span class="tag">fees + approvals</span><span class="tag tag--scope">school scope</span></div>
+  <p class="role-lede">Finance runs the money ledger end to end and approves the spending side. Its one structural
+    dependency runs the other way from HR's: an approved reimbursement is not paid by Finance at all &mdash; it is swept
+    into the next payroll run and settled there.</p>
+  <dl class="facts">
+    <div><dt>Account</dt><dd>rajesh.iyer.demo@edunex.edu</dd></div>
+    <div><dt>Lands on</dt><dd>/fees</dd></div>
+    <div><dt>Holds</dt><dd>finance.approve</dd></div>
+    <div><dt>Payroll</dt><dd>read only</dd></div>
+  </dl>
+
+  <figure>
+    <div class="fig-scroll">
+      <svg viewBox="0 0 992 336" role="img" width="992"
+        aria-label="Finance defines a fee structure and applies it to raise charges on every enrolled student. Recording a payment allocates it across fee lines, mints a receipt and notifies guardians. A parallel approval path takes expenses and reimbursements from Submitted through Under Review to Approved, where expenses are paid by Finance but reimbursements are handed to the HR payroll run. Concessions approved by Finance are written straight onto the fee ledger.">
+        <defs>
+          <marker id="fi-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/></marker>
+          <marker id="fi-t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--teal)"/></marker>
+          <marker id="fi-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--gold)"/></marker>
+        </defs>
+
+        <text x="8" y="26" font-size="11" font-weight="700" fill="var(--text-faint)" letter-spacing="1">COLLECTION</text>
+        <rect x="8" y="34" width="150" height="52" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="83" y="55" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Fee structure</text>
+        <text x="83" y="72" text-anchor="middle" font-size="9.5" fill="var(--text-muted)" font-family="monospace">Draft &middot; Active</text>
+        <line x1="158" y1="60" x2="178" y2="60" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#fi-a)"/>
+
+        <rect x="182" y="34" width="150" height="52" rx="9" fill="var(--brand)"/>
+        <text x="257" y="55" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Apply to students</text>
+        <text x="257" y="72" text-anchor="middle" font-size="9.5" fill="#FCE4EC">raises a charge each</text>
+        <line x1="332" y1="60" x2="352" y2="60" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#fi-a)"/>
+
+        <rect x="356" y="34" width="150" height="52" rx="9" fill="var(--brand)"/>
+        <text x="431" y="55" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Record payment</text>
+        <text x="431" y="72" text-anchor="middle" font-size="9.5" fill="#FCE4EC">UPI &middot; Cash &middot; DD &middot; Cheque</text>
+        <line x1="506" y1="60" x2="526" y2="60" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#fi-g)"/>
+
+        <rect x="530" y="34" width="150" height="52" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="605" y="51" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--text-strong)">Allocated FIFO</text>
+        <text x="605" y="66" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">lines recomputed to</text>
+        <text x="605" y="78" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">Paid / Partial / Overdue</text>
+        <line x1="680" y1="60" x2="700" y2="60" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#fi-g)"/>
+
+        <rect x="704" y="34" width="150" height="52" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="779" y="55" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--text-strong)">Receipt minted</text>
+        <text x="779" y="72" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">RCT-YYYY-NNNNNN</text>
+        <line x1="854" y1="60" x2="874" y2="60" stroke="var(--teal)" stroke-width="1.6" marker-end="url(#fi-t)"/>
+
+        <rect x="878" y="34" width="106" height="52" rx="9" fill="none" stroke="var(--teal)" stroke-width="1.7"/>
+        <text x="931" y="55" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--teal)">Guardians</text>
+        <text x="931" y="70" text-anchor="middle" font-size="9.5" fill="var(--teal)">notified on WhatsApp</text>
+
+        <text x="8" y="134" font-size="11" font-weight="700" fill="var(--text-faint)" letter-spacing="1">APPROVAL &mdash; EXPENSES, REIMBURSEMENTS, CONCESSIONS</text>
+        <rect x="8" y="146" width="150" height="52" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="83" y="167" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Submitted</text>
+        <text x="83" y="184" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">Finance is notified</text>
+        <line x1="158" y1="172" x2="178" y2="172" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#fi-a)"/>
+
+        <rect x="182" y="146" width="150" height="52" rx="9" fill="var(--brand)"/>
+        <text x="257" y="167" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Under Review</text>
+        <text x="257" y="184" text-anchor="middle" font-size="9.5" fill="#FCE4EC">finance.approve</text>
+        <line x1="332" y1="172" x2="352" y2="172" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#fi-a)"/>
+
+        <rect x="356" y="146" width="150" height="52" rx="9" fill="var(--brand)"/>
+        <text x="431" y="167" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Approved</text>
+        <text x="431" y="184" text-anchor="middle" font-size="9.5" fill="#FCE4EC">claimant notified</text>
+
+        <path d="M506 160 H 530 V 120 H 554" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#fi-a)"/>
+        <path d="M506 172 H 554" fill="none" stroke="var(--teal)" stroke-width="1.6" marker-end="url(#fi-t)"/>
+        <path d="M506 184 H 530 V 224 H 554" fill="none" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#fi-g)"/>
+
+        <rect x="558" y="94" width="180" height="52" rx="9" fill="var(--brand)"/>
+        <text x="648" y="115" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Expense &rarr; Paid</text>
+        <text x="648" y="132" text-anchor="middle" font-size="9.5" fill="#FCE4EC">Finance settles it</text>
+
+        <rect x="558" y="146" width="180" height="52" rx="9" fill="none" stroke="var(--teal)" stroke-width="1.8"/>
+        <text x="648" y="164" text-anchor="middle" font-size="12" font-weight="700" fill="var(--teal)">Reimbursement</text>
+        <text x="648" y="180" text-anchor="middle" font-size="9.5" fill="var(--teal)">swept into HR's payroll run,</text>
+        <text x="648" y="192" text-anchor="middle" font-size="9.5" fill="var(--teal)">paid when the run is Paid</text>
+
+        <rect x="558" y="198" width="180" height="52" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="648" y="219" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Concession applied</text>
+        <text x="648" y="236" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">discount hits the ledger</text>
+
+        <text x="8" y="284" font-size="11" font-weight="700" fill="var(--text-faint)" letter-spacing="1">RECONCILIATION</text>
+        <rect x="8" y="292" width="150" height="40" rx="8" fill="var(--brand)"/>
+        <text x="83" y="317" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Run match</text>
+        <line x1="158" y1="312" x2="178" y2="312" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#fi-a)"/>
+        <rect x="182" y="292" width="556" height="40" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="460" y="310" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--text-strong)">Matched &middot; Unmatched &middot; Exception &middot; Resolved</text>
+        <text x="460" y="324" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">every exception is cleared by hand against a candidate payment</text>
+      </svg>
+    </div>
+    <figcaption>Two independent paths and one crossover. Expenses end inside Finance; <b>reimbursements do not</b> &mdash;
+      approval only marks them ready, and the money moves in HR's monthly payroll run.</figcaption>
+  </figure>
+</div>
+<div class="role" id="office">
+  <div class="role-head"><h3>Office</h3><span class="tag">admissions + front desk</span><span class="tag tag--scope">school scope</span></div>
+  <p class="role-lede">The widest permission set below leadership, and the only one that creates a student from
+    nothing. Office runs two parallel state machines &mdash; the lead's stage and the application's status &mdash; that
+    advance each other, and ends at the one irreversible act in the funnel: enrolment.</p>
+  <dl class="facts">
+    <div><dt>Account</dt><dd>kavitha.s.demo@edunex.edu</dd></div>
+    <div><dt>Lands on</dt><dd>/admissions</dd></div>
+    <div><dt>Creates</dt><dd>students &middot; parents &middot; documents</dd></div>
+    <div><dt>Holds no</dt><dd>*.approve permission at all</dd></div>
+  </dl>
+
+  <figure>
+    <div class="fig-scroll">
+      <svg viewBox="0 0 992 352" role="img" width="992"
+        aria-label="The lead stage runs from New Lead through Contacted, Qualified, Visit Scheduled, Visit Completed, Application, Assessment and Offer to Enrolled, with Lost reachable throughout. Below it the application status runs Draft, Submitted, Under Review, Assessment Scheduled, Offer Made, Accepted, Enrolled. Two gates apply: every document must be Verified before an offer can be made, and the offer must not have expired before it is accepted. Enrolment creates the parent record, the student master and the guardian link in one transaction and notifies the Principal.">
+        <defs>
+          <marker id="of-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/></marker>
+          <marker id="of-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--critical)"/></marker>
+          <marker id="of-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--gold)"/></marker>
+        </defs>
+
+        <text x="8" y="24" font-size="11" font-weight="700" fill="var(--text-faint)" letter-spacing="1">LEAD STAGE &mdash; THE PERSON</text>
+        <rect x="8" y="34" width="104" height="44" rx="8" fill="var(--brand)"/>
+        <text x="60" y="53" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">New Lead</text>
+        <text x="60" y="68" text-anchor="middle" font-size="9" fill="#FCE4EC">8 sources</text>
+        <line x1="112" y1="56" x2="124" y2="56" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#of-a)"/>
+        <rect x="128" y="34" width="104" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="180" y="53" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text-strong)">Contacted</text>
+        <text x="180" y="68" text-anchor="middle" font-size="9" fill="var(--text-muted)">follow-up logged</text>
+        <line x1="232" y1="56" x2="244" y2="56" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#of-a)"/>
+        <rect x="248" y="34" width="104" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="300" y="53" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text-strong)">Qualified</text>
+        <text x="300" y="68" text-anchor="middle" font-size="9" fill="var(--text-muted)">counsellor assigned</text>
+        <line x1="352" y1="56" x2="364" y2="56" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#of-a)"/>
+        <rect x="368" y="34" width="104" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="420" y="53" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text-strong)">Visit Scheduled</text>
+        <text x="420" y="68" text-anchor="middle" font-size="9" fill="var(--text-muted)">campus visit</text>
+        <line x1="472" y1="56" x2="484" y2="56" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#of-a)"/>
+        <rect x="488" y="34" width="104" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="540" y="53" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text-strong)">Visit Completed</text>
+        <text x="540" y="68" text-anchor="middle" font-size="9" fill="var(--text-muted)">auto on outcome</text>
+        <line x1="592" y1="56" x2="604" y2="56" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#of-a)"/>
+        <rect x="608" y="34" width="104" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="660" y="53" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text-strong)">Application</text>
+        <text x="660" y="68" text-anchor="middle" font-size="9" fill="var(--text-muted)">record opens</text>
+        <line x1="712" y1="56" x2="724" y2="56" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#of-a)"/>
+        <rect x="728" y="34" width="104" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="780" y="53" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text-strong)">Assessment</text>
+        <line x1="832" y1="56" x2="844" y2="56" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#of-a)"/>
+        <rect x="848" y="34" width="66" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="881" y="60" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text-strong)">Offer</text>
+        <line x1="914" y1="56" x2="926" y2="56" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#of-a)"/>
+        <rect x="930" y="34" width="54" height="44" rx="8" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.4"/>
+        <text x="957" y="60" text-anchor="middle" font-size="10" font-weight="700" fill="var(--text-strong)">Enrolled</text>
+
+        <path d="M300 78 V 96 H 60 V 112" fill="none" stroke="var(--critical)" stroke-width="1.3" stroke-dasharray="5 4"/>
+        <path d="M660 78 V 96 H 300" fill="none" stroke="var(--critical)" stroke-width="1.3" stroke-dasharray="5 4"/>
+        <rect x="8" y="112" width="104" height="34" rx="8" fill="none" stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <text x="60" y="133" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--critical)">Lost</text>
+        <text x="124" y="133" font-size="9.5" fill="var(--critical)">reachable from any live stage &mdash; withdraws the application, cancels follow-ups</text>
+
+        <text x="8" y="182" font-size="11" font-weight="700" fill="var(--text-faint)" letter-spacing="1">APPLICATION STATUS &mdash; THE PAPERWORK</text>
+        <rect x="8" y="192" width="104" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="60" y="218" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text-strong)">Draft</text>
+        <line x1="112" y1="214" x2="124" y2="214" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#of-a)"/>
+        <rect x="128" y="192" width="104" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="180" y="218" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text-strong)">Submitted</text>
+        <line x1="232" y1="214" x2="244" y2="214" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#of-a)"/>
+        <rect x="248" y="192" width="104" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="300" y="218" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text-strong)">Under Review</text>
+        <line x1="352" y1="214" x2="364" y2="214" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#of-a)"/>
+        <rect x="368" y="192" width="120" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.2"/>
+        <text x="428" y="211" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text-strong)">Assessment</text>
+        <text x="428" y="226" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text-strong)">Scheduled</text>
+        <line x1="488" y1="214" x2="500" y2="214" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#of-a)"/>
+
+        <rect x="504" y="192" width="104" height="44" rx="8" fill="var(--brand)"/>
+        <text x="556" y="218" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">Offer Made</text>
+        <path d="M556 250 V 236" fill="none" stroke="var(--critical)" stroke-width="1.5" marker-end="url(#of-r)"/>
+        <rect x="470" y="252" width="172" height="34" rx="8" fill="none" stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <text x="556" y="273" text-anchor="middle" font-size="10" font-weight="700" fill="var(--critical)">every document Verified first</text>
+
+        <line x1="608" y1="214" x2="620" y2="214" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#of-a)"/>
+        <rect x="624" y="192" width="104" height="44" rx="8" fill="var(--brand)"/>
+        <text x="676" y="218" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">Accepted</text>
+        <path d="M676 250 V 236" fill="none" stroke="var(--critical)" stroke-width="1.5" marker-end="url(#of-r)"/>
+        <rect x="652" y="252" width="150" height="34" rx="8" fill="none" stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <text x="727" y="273" text-anchor="middle" font-size="10" font-weight="700" fill="var(--critical)">offer must not have expired</text>
+
+        <line x1="728" y1="214" x2="740" y2="214" stroke="var(--gold)" stroke-width="1.6" marker-end="url(#of-g)"/>
+        <rect x="744" y="192" width="240" height="44" rx="8" fill="var(--brand)"/>
+        <text x="864" y="211" text-anchor="middle" font-size="11.5" font-weight="700" fill="#fff">Enrol &mdash; one transaction</text>
+        <text x="864" y="227" text-anchor="middle" font-size="9" fill="#FCE4EC">parent PAR-… + student HS-YYYY-… + guardian link</text>
+        <path d="M864 236 V 300 H 826" fill="none" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#of-g)"/>
+        <rect x="614" y="300" width="210" height="44" rx="8" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="719" y="319" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text-strong)">Principal notified</text>
+        <text x="719" y="334" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">Student Master created &middot; referral credited</text>
+      </svg>
+    </div>
+    <figcaption>Two state machines that drive each other: moving the lead to <b>Offer</b> sets the application to
+      <b>Offer Made</b>, and vice versa. The two dashed gates are refusals, not warnings &mdash; an offer with an unverified
+      document, or an acceptance after the expiry date, is rejected by the API.</figcaption>
+  </figure>
+
+  <div class="cols">
+    <div class="note"><h4>Front desk, same role</h4><ul>
+      <li><b>Visitors</b>: Expected &rarr; Inside &rarr; Completed, or Denied. The host is notified on arrival.</li>
+      <li><b>Pickup</b>: a new person is added as Pending, verified by OTP, then Verified before a first collection.</li>
+      <li>An <b>unauthorised pickup attempt</b> holds the collection and alerts the Principal and the office.</li>
+      <li><b>Documents</b> a parent uploads land here for verification.</li>
+    </ul></div>
+    <div class="note note--limit"><h4>Prepares, never approves</h4><ul>
+      <li>Office can raise, submit and pay an expense but <b>cannot approve one</b> &mdash; that needs Finance.</li>
+      <li>Office requests a certificate; the decision chain ends with the Principal.</li>
+      <li>Student tracking shows <b>current position only</b>, no history.</li>
+    </ul></div>
+  </div>
+</div>
+<div class="role" id="staff">
+  <div class="role-head"><h3>Non-Teaching Staff</h3><span class="tag">self-service + duty</span><span class="tag tag--scope">self scope</span></div>
+  <p class="role-lede">A split role, and the split is the point. For anything about themselves &mdash; shifts, leave,
+    payslips &mdash; the scope is <em>self</em> and there is no way to address another employee: every endpoint is
+    <code>/me/…</code> with no id to change. For gate and transport duty the scope is campus-wide.</p>
+  <dl class="facts">
+    <div><dt>Account</dt><dd>murugan.p.demo@edunex.edu</dd></div>
+    <div><dt>Lands on</dt><dd>/staff-self</dd></div>
+    <div><dt>Duty screens</dt><dd>gate &middot; pickup &middot; boarding</dd></div>
+    <div><dt>Sees students?</dt><dd>no &mdash; not even a list</dd></div>
+  </dl>
+
+  <figure>
+    <div class="fig-scroll">
+      <svg viewBox="0 0 992 300" role="img" width="992"
+        aria-label="Two separate lanes. In the self lane the staff member checks in, applies for leave which is handed to HR for approval, and downloads a payslip that HR released. In the duty lane, campus-wide, they record gate scans which notify parents of safe arrival, verify a pickup by OTP before releasing a child, and confirm boarding on a bus route.">
+        <defs>
+          <marker id="st-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/></marker>
+          <marker id="st-t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--teal)"/></marker>
+          <marker id="st-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--gold)"/></marker>
+        </defs>
+
+        <rect x="4" y="16" width="984" height="122" rx="12" fill="none" stroke="var(--border-strong)" stroke-width="1.2" stroke-dasharray="6 4"/>
+        <text x="20" y="38" font-size="11" font-weight="700" fill="var(--text-faint)" letter-spacing="1">SELF SCOPE &mdash; /me/… endpoints, no id to change</text>
+
+        <rect x="20" y="52" width="150" height="52" rx="9" fill="var(--brand)"/>
+        <text x="95" y="73" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Check in / out</text>
+        <text x="95" y="90" text-anchor="middle" font-size="9.5" fill="#FCE4EC">own attendance only</text>
+
+        <rect x="194" y="52" width="150" height="52" rx="9" fill="var(--brand)"/>
+        <text x="269" y="73" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Apply for leave</text>
+        <text x="269" y="90" text-anchor="middle" font-size="9.5" fill="#FCE4EC" font-family="monospace">&rarr; Submitted</text>
+        <line x1="344" y1="78" x2="364" y2="78" stroke="var(--teal)" stroke-width="1.7" marker-end="url(#st-t)"/>
+
+        <rect x="368" y="52" width="150" height="52" rx="9" fill="none" stroke="var(--teal)" stroke-width="1.8"/>
+        <text x="443" y="73" text-anchor="middle" font-size="12" font-weight="700" fill="var(--teal)">HR approves</text>
+        <text x="443" y="90" text-anchor="middle" font-size="9.5" fill="var(--teal)">you may cancel until then</text>
+
+        <rect x="562" y="52" width="150" height="52" rx="9" fill="none" stroke="var(--teal)" stroke-width="1.8"/>
+        <text x="637" y="73" text-anchor="middle" font-size="12" font-weight="700" fill="var(--teal)">HR releases payroll</text>
+        <text x="637" y="90" text-anchor="middle" font-size="9.5" fill="var(--teal)">after Principal approval</text>
+        <line x1="712" y1="78" x2="732" y2="78" stroke="var(--gold)" stroke-width="1.6" marker-end="url(#st-g)"/>
+
+        <rect x="736" y="52" width="150" height="52" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="811" y="73" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Payslip available</text>
+        <text x="811" y="90" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">notified &middot; downloadable</text>
+
+        <text x="20" y="127" font-size="9.5" fill="var(--text-faint)">Claim overtime: last 60 days, half-hour steps, 16 h a day at most &mdash; also approved by HR, then paid inside the payroll run.</text>
+
+        <rect x="4" y="152" width="984" height="140" rx="12" fill="none" stroke="var(--teal)" stroke-width="1.3"/>
+        <text x="20" y="174" font-size="11" font-weight="700" fill="var(--teal)" letter-spacing="1">DUTY &mdash; CAMPUS-WIDE, NOT SELF-SCOPED</text>
+
+        <rect x="20" y="188" width="150" height="52" rx="9" fill="var(--brand)"/>
+        <text x="95" y="209" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Record gate scan</text>
+        <text x="95" y="226" text-anchor="middle" font-size="9.5" fill="#FCE4EC">RFID &middot; Face &middot; QR &middot; Manual</text>
+        <line x1="170" y1="214" x2="190" y2="214" stroke="var(--gold)" stroke-width="1.6" marker-end="url(#st-g)"/>
+        <rect x="194" y="188" width="150" height="52" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="269" y="209" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--text-strong)">Safe-arrival alert</text>
+        <text x="269" y="226" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">parent notified in a minute</text>
+
+        <rect x="388" y="188" width="150" height="52" rx="9" fill="var(--brand)"/>
+        <text x="463" y="209" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Verify pickup</text>
+        <text x="463" y="226" text-anchor="middle" font-size="9.5" fill="#FCE4EC">OTP valid 10 minutes</text>
+        <line x1="538" y1="214" x2="558" y2="214" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#st-a)"/>
+        <rect x="562" y="188" width="150" height="52" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="637" y="209" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Collection recorded</text>
+        <text x="637" y="226" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">parents notified</text>
+
+        <rect x="736" y="188" width="150" height="52" rx="9" fill="var(--brand)"/>
+        <text x="811" y="209" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Confirm boarding</text>
+        <text x="811" y="226" text-anchor="middle" font-size="9.5" fill="#FCE4EC">boarded / deboarded</text>
+
+        <text x="20" y="266" font-size="10" fill="var(--critical)" font-weight="600">Unauthorised pickup attempt &rarr; collection held, incident raised, Principal and office alerted.</text>
+        <text x="20" y="283" font-size="10" fill="var(--text-muted)">No student list, no Student 360, no tracking map &mdash; the gate feed and the route roster are the only places students appear.</text>
+      </svg>
+    </div>
+    <figcaption>The same person, two scopes. Their own HR data is unreachable for anyone else and unreachable by them
+      for anyone else; their <b>duty</b> data is campus-wide because a gate cannot be guarded one employee at a time.</figcaption>
+  </figure>
+
+  <div class="callout"><b>Who else has self-service.</b> The <code>selfservice.use</code> permission is held by
+    <b>Non-Teaching Staff</b>, <b>Teacher</b> and <b>Super Admin</b> (the last through its wildcard grant). School Admin
+    is explicitly denied it, along with the four portal permissions. HR, Finance, Office, Principal and Management have
+    no self-service screen &mdash; they reach leave and attendance through the HR screens instead, where the permission
+    is <code>hr.read</code> and the scope is the whole school. Anyone whose account is not linked to an employee record
+    sees an empty state rather than another person's data.</div>
+</div>
+
+<div class="role" id="parent">
+  <div class="role-head"><h3>Parent</h3><span class="tag">3 permissions only</span><span class="tag tag--scope">family scope</span></div>
+  <p class="role-lede">The smallest permission set that still does a lot: portal, own children's tracking, own fees.
+    Every request is checked twice &mdash; the parent id must be your own, and the child must be linked to you. Tracking
+    needs a third check, a per-child consent flag, and history stops at seven days.</p>
+  <dl class="facts">
+    <div><dt>Accounts</dt><dd>ranjith.kumar &middot; sudha.raman</dd></div>
+    <div><dt>Lands on</dt><dd>/parent-360</dd></div>
+    <div><dt>History cap</dt><dd>7 days, enforced in SQL</dd></div>
+    <div><dt>Every view</dt><dd>written to the audit trail</dd></div>
+  </dl>
+
+  <figure>
+    <div class="fig-scroll">
+      <svg viewBox="0 0 992 306" role="img" width="992"
+        aria-label="A parent signs in, picks a child from the switcher, and reaches six tabs. Track requires a per-child consent flag and caps history at seven days. Fees allows paying an instalment which mints a receipt. More holds circular acknowledgement, PTM booking and messaging the class teacher. A parent cannot see interventions, staff observations or any other family's child.">
+        <defs>
+          <marker id="pa-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/></marker>
+          <marker id="pa-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--critical)"/></marker>
+          <marker id="pa-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--gold)"/></marker>
+        </defs>
+
+        <rect x="8" y="116" width="140" height="56" rx="9" fill="var(--brand)"/>
+        <text x="78" y="139" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Choose a child</text>
+        <text x="78" y="156" text-anchor="middle" font-size="9.5" fill="#FCE4EC">linked children only</text>
+
+        <path d="M148 134 H 172 V 32 H 196" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#pa-a)"/>
+        <path d="M148 138 H 180 V 104 H 196" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#pa-a)"/>
+        <path d="M148 144 H 196" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#pa-a)"/>
+        <path d="M148 150 H 180 V 184 H 196" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#pa-a)"/>
+        <path d="M148 154 H 172 V 256 H 196" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#pa-a)"/>
+
+        <rect x="200" y="8" width="150" height="48" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="275" y="28" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Home</text>
+        <text x="275" y="44" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">gate &middot; bus &middot; week &middot; updates</text>
+
+        <rect x="200" y="80" width="150" height="48" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="275" y="100" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Track</text>
+        <text x="275" y="116" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">refreshed every 30 s</text>
+        <line x1="350" y1="104" x2="370" y2="104" stroke="var(--critical)" stroke-width="1.5" marker-end="url(#pa-r)"/>
+        <rect x="374" y="80" width="164" height="48" rx="9" fill="none" stroke="var(--critical)" stroke-width="1.6" stroke-dasharray="5 4"/>
+        <text x="456" y="100" text-anchor="middle" font-size="11" font-weight="700" fill="var(--critical)">consent flag per child</text>
+        <text x="456" y="116" text-anchor="middle" font-size="9.5" fill="var(--critical)">history capped at 7 days</text>
+
+        <rect x="200" y="120" width="150" height="48" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="275" y="140" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Academics</text>
+        <text x="275" y="156" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">marks &middot; attendance &middot; homework</text>
+
+        <rect x="200" y="160" width="150" height="48" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="275" y="180" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">Fees</text>
+        <text x="275" y="196" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">outstanding by line</text>
+        <line x1="350" y1="184" x2="370" y2="184" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#pa-a)"/>
+        <rect x="374" y="160" width="150" height="48" rx="9" fill="var(--brand)"/>
+        <text x="449" y="180" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Pay Now</text>
+        <text x="449" y="196" text-anchor="middle" font-size="9.5" fill="#FCE4EC">UPI &middot; Card &middot; Net Banking</text>
+        <line x1="524" y1="184" x2="544" y2="184" stroke="var(--gold)" stroke-width="1.6" marker-end="url(#pa-g)"/>
+        <rect x="548" y="160" width="150" height="48" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="623" y="180" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--text-strong)">Receipt issued</text>
+        <text x="623" y="196" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">same ledger as the office</text>
+
+        <rect x="200" y="232" width="150" height="48" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="275" y="252" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-strong)">More</text>
+        <text x="275" y="268" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">circulars &middot; PTM &middot; messages</text>
+        <path d="M350 244 H 366 V 232 H 382" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#pa-a)"/>
+        <path d="M350 256 H 366 V 276 H 382" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#pa-a)"/>
+        <rect x="386" y="212" width="164" height="40" rx="8" fill="var(--brand)"/>
+        <text x="468" y="230" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">Acknowledge circular</text>
+        <text x="468" y="244" text-anchor="middle" font-size="9" fill="#FCE4EC">recorded against your child</text>
+        <rect x="386" y="256" width="164" height="40" rx="8" fill="var(--brand)"/>
+        <text x="468" y="274" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">Book a PTM slot</text>
+        <text x="468" y="288" text-anchor="middle" font-size="9" fill="#FCE4EC">teacher notified &middot; one per child</text>
+
+        <rect x="726" y="8" width="258" height="120" rx="10" fill="none" stroke="var(--critical)" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <text x="855" y="32" text-anchor="middle" font-size="11" font-weight="700" fill="var(--critical)">Stripped from the family view</text>
+        <text x="855" y="54" text-anchor="middle" font-size="10" fill="var(--critical)">Early Warning interventions</text>
+        <text x="855" y="72" text-anchor="middle" font-size="10" fill="var(--critical)">internal staff observations</text>
+        <text x="855" y="90" text-anchor="middle" font-size="10" fill="var(--critical)">confidential medical notes</text>
+        <text x="855" y="112" text-anchor="middle" font-size="10" fill="var(--critical)">any child not linked to you &rarr; 404</text>
+      </svg>
+    </div>
+    <figcaption>Three permissions, checked three ways. The consent flag is the one most often missed: a parent with
+      <code>tracking.read_own_children</code> still sees nothing for a child whose guardian record does not carry
+      <b>can_view_tracking</b>.</figcaption>
+  </figure>
+</div>
+
+<div class="role" id="student">
+  <div class="role-head"><h3>Student</h3><span class="tag">1 permission</span><span class="tag tag--scope">self scope</span></div>
+  <p class="role-lede">The narrowest role in the system: a single permission, and a scope that resolves to one row.
+    The student opens their own Student 360 &mdash; the same screen a teacher sees, with the staff-only material removed
+    by the API before it is sent.</p>
+  <dl class="facts">
+    <div><dt>Account</dt><dd>aditya.kumar.demo@students.edunex.edu</dd></div>
+    <div><dt>Lands on</dt><dd>/my-profile</dd></div>
+    <div><dt>Permission</dt><dd>student_portal.use</dd></div>
+    <div><dt>Scope</dt><dd>own student record only</dd></div>
+  </dl>
+
+  <figure>
+    <div class="fig-scroll">
+      <svg viewBox="0 0 992 252" role="img" width="992"
+        aria-label="A student signs in and lands on their own Student 360 profile with ten readable tabs. The server removes interventions, observations, fees, tracking and confidential medical notes before sending. Notifications, tasks and account settings are reachable. Timetable and homework have no student surface in the current build.">
+        <defs>
+          <marker id="su-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/></marker>
+          <marker id="su-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--critical)"/></marker>
+        </defs>
+
+        <rect x="8" y="88" width="146" height="54" rx="9" fill="var(--brand)"/>
+        <text x="81" y="111" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">Sign in</text>
+        <text x="81" y="128" text-anchor="middle" font-size="9.5" fill="#FCE4EC">scope resolves to one row</text>
+        <line x1="154" y1="115" x2="174" y2="115" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#su-a)"/>
+
+        <rect x="178" y="88" width="160" height="54" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="258" y="111" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--text-strong)">My Profile</text>
+        <text x="258" y="128" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">own Student 360</text>
+
+        <path d="M338 106 H 362 V 46 H 386" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#su-a)"/>
+        <path d="M338 124 H 362 V 196 H 386" fill="none" stroke="var(--critical)" stroke-width="1.4" marker-end="url(#su-r)"/>
+
+        <rect x="390" y="16" width="420" height="60" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="600" y="38" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--text-strong)">Ten readable tabs</text>
+        <text x="600" y="56" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">Overview &middot; Academics &middot; Attendance &middot; Skills &middot; Activities</text>
+        <text x="600" y="69" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">Behaviour &middot; Wellbeing &middot; Achievements &middot; Portfolio &middot; Documents</text>
+
+        <rect x="390" y="168" width="420" height="56" rx="9" fill="none" stroke="var(--critical)" stroke-width="1.6" stroke-dasharray="5 4"/>
+        <text x="600" y="190" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--critical)">Removed by the server before sending</text>
+        <text x="600" y="208" text-anchor="middle" font-size="9.5" fill="var(--critical)">interventions &middot; staff observations &middot; fees &middot; tracking &middot; confidential medical</text>
+
+        <rect x="834" y="16" width="150" height="60" rx="9" fill="var(--gold-tint)" stroke="var(--gold)" stroke-width="1.5"/>
+        <text x="909" y="38" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--text-strong)">Read only</text>
+        <text x="909" y="56" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">no edits, no uploads,</text>
+        <text x="909" y="68" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">no achievement entries</text>
+
+        <rect x="178" y="180" width="160" height="56" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="258" y="202" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--text-strong)">Also reachable</text>
+        <text x="258" y="220" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">notifications &middot; tasks &middot; account</text>
+        <path d="M258 142 V 176" fill="none" stroke="var(--text-faint)" stroke-width="1.4" marker-end="url(#su-a)"/>
+
+        <rect x="834" y="168" width="150" height="56" rx="9" fill="none" stroke="var(--text-faint)" stroke-width="1.3" stroke-dasharray="6 4"/>
+        <text x="909" y="190" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--text-muted)">Not built yet</text>
+        <text x="909" y="207" text-anchor="middle" font-size="9.5" fill="var(--text-faint)">student timetable</text>
+        <text x="909" y="219" text-anchor="middle" font-size="9.5" fill="var(--text-faint)">student homework</text>
+      </svg>
+    </div>
+    <figcaption>The student portal is Student 360 with the staff layer removed server-side, so the trimming holds even
+      if the client is bypassed. <b>Timetable and homework have no student-facing surface in this build</b> &mdash; both exist
+      only for teachers and, for a child, on the parent's Academics tab.</figcaption>
+  </figure>
+
+  <div class="callout"><b>Worth deciding before launch.</b> A student can read their marks and attendance but cannot see
+    what homework is due or what class is next. If that is intended, say so in the release notes; if not, it is the one
+    obvious gap in an otherwise complete role map.</div>
+</div>
+</section>
+<section class="band" id="handoffs">
+  <h2>Where work changes hands</h2>
+  <p class="sub">No role finishes everything it starts. These are the seams &mdash; the points where one role's output
+    becomes another role's inbox item. Each arrow is a real notification sent to a role, not a convention.</p>
+
+  <figure>
+    <div class="fig-scroll">
+      <svg viewBox="0 0 992 330" role="img" width="992"
+        aria-label="A hand-off map. Staff and teachers submit leave and overtime to HR. HR prepares payroll and submits it to the Principal for approval, then releases it back to staff as payslips. Office submits expenses and certificates; Finance approves expenses and concessions; the Principal approves certificates. Finance approves reimbursements which are paid inside HR's payroll run. Parents upload documents that the office verifies, and teachers raise Early Warning signals reviewed by teachers and the Principal.">
+        <defs>
+          <marker id="hx-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--teal)"/></marker>
+          <marker id="hx-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--gold)"/></marker>
+        </defs>
+
+        <rect x="8" y="30" width="132" height="48" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="74" y="50" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text-strong)">Staff</text>
+        <text x="74" y="66" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">leave &middot; overtime</text>
+
+        <rect x="8" y="112" width="132" height="48" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="74" y="132" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text-strong)">Teacher</text>
+        <text x="74" y="148" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">signals &middot; lesson plans</text>
+
+        <rect x="8" y="194" width="132" height="48" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="74" y="214" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text-strong)">Office</text>
+        <text x="74" y="230" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">expenses &middot; certificates</text>
+
+        <rect x="8" y="270" width="132" height="48" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="74" y="290" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text-strong)">Parent</text>
+        <text x="74" y="306" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">documents</text>
+
+        <rect x="322" y="30" width="132" height="48" rx="9" fill="var(--brand)"/>
+        <text x="388" y="50" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">HR</text>
+        <text x="388" y="66" text-anchor="middle" font-size="9.5" fill="#FCE4EC">approves &middot; prepares</text>
+
+        <rect x="322" y="152" width="132" height="48" rx="9" fill="var(--brand)"/>
+        <text x="388" y="172" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Finance</text>
+        <text x="388" y="188" text-anchor="middle" font-size="9.5" fill="#FCE4EC">approves spend</text>
+
+        <rect x="322" y="270" width="132" height="48" rx="9" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.3"/>
+        <text x="388" y="290" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text-strong)">Office</text>
+        <text x="388" y="306" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">verifies</text>
+
+        <rect x="636" y="92" width="150" height="56" rx="9" fill="var(--brand)"/>
+        <text x="711" y="114" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Principal</text>
+        <text x="711" y="131" text-anchor="middle" font-size="9.5" fill="#FCE4EC">payroll &middot; certificates</text>
+        <text x="711" y="143" text-anchor="middle" font-size="9.5" fill="#FCE4EC">transfers &middot; broadcasts</text>
+
+        <path d="M140 54 H 318" fill="none" stroke="var(--teal)" stroke-width="1.6" marker-end="url(#hx-a)"/>
+        <text x="229" y="47" text-anchor="middle" font-size="9.5" fill="var(--teal)">notifies role hr</text>
+
+        <path d="M140 130 H 200 V 66 H 318" fill="none" stroke="var(--teal)" stroke-width="1.6" marker-end="url(#hx-a)"/>
+        <path d="M140 218 H 240 V 176 H 318" fill="none" stroke="var(--teal)" stroke-width="1.6" marker-end="url(#hx-a)"/>
+        <text x="245" y="169" text-anchor="middle" font-size="9.5" fill="var(--teal)">notifies role finance</text>
+
+        <path d="M140 294 H 318" fill="none" stroke="var(--teal)" stroke-width="1.6" marker-end="url(#hx-a)"/>
+        <text x="229" y="287" text-anchor="middle" font-size="9.5" fill="var(--teal)">notifies role office</text>
+
+        <path d="M454 54 H 540 V 110 H 632" fill="none" stroke="var(--teal)" stroke-width="1.8" marker-end="url(#hx-a)"/>
+        <text x="540" y="47" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--teal)">payroll Under Review</text>
+
+        <path d="M454 176 H 560 V 130 H 632" fill="none" stroke="var(--teal)" stroke-width="1.6" marker-end="url(#hx-a)"/>
+        <path d="M454 294 H 580 V 148 H 632" fill="none" stroke="var(--teal)" stroke-width="1.6" marker-end="url(#hx-a)"/>
+        <text x="566" y="308" text-anchor="middle" font-size="9.5" fill="var(--teal)">certificate approval</text>
+
+        <path d="M711 148 V 224 H 388 V 204" fill="none" stroke="var(--gold)" stroke-width="1.8" marker-end="url(#hx-b)"/>
+        <text x="560" y="220" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--gold-deep)">Approved &mdash; back to Finance and HR to settle</text>
+
+        <path d="M388 78 V 148" fill="none" stroke="var(--gold)" stroke-width="1.8" marker-end="url(#hx-b)"/>
+        <text x="398" y="118" font-size="9.5" fill="var(--gold-deep)">reimbursements ride the payroll run</text>
+
+        <path d="M322 42 H 180 V 20 H 74 V 26" fill="none" stroke="var(--gold)" stroke-width="1.6" marker-end="url(#hx-b)"/>
+        <text x="200" y="14" text-anchor="middle" font-size="9.5" fill="var(--gold-deep)">payslip released</text>
+
+        <rect x="820" y="92" width="164" height="56" rx="9" fill="none" stroke="var(--text-faint)" stroke-width="1.3" stroke-dasharray="6 4"/>
+        <text x="902" y="113" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--text-muted)">Admin roles</text>
+        <text x="902" y="130" text-anchor="middle" font-size="9.5" fill="var(--text-faint)">sit outside these chains</text>
+        <text x="902" y="142" text-anchor="middle" font-size="9.5" fill="var(--text-faint)">users, roles, settings only</text>
+      </svg>
+    </div>
+    <figcaption>Teal arrows are work moving <b>up</b> for a decision; gold arrows are the decision coming <b>back down</b>
+      as money, a payslip or an issued document. The two administrator roles appear nowhere in this map &mdash; they
+      configure who may stand at each node, not the work itself.</figcaption>
+  </figure>
+</section>
+
+<section class="band" id="matrix">
+  <h2>Permission matrix</h2>
+  <p class="sub">● full, including create and edit &middot; ◐ partial or read-only &middot; · none. Administrators can
+    change any row except Super Admin's at <b>Administration &rarr; Users &amp; Roles</b>; the change reaches every
+    holder within 30 seconds and is audited.</p>
+  <div class="tw">
+    <table>
+      <thead><tr>
+        <th>Role</th><th>Dash</th><th>Students</th><th>Academics</th><th>Tracking</th><th>Admissions</th>
+        <th>Finance</th><th>Workforce</th><th>Payroll</th><th>Safety</th><th>Ops</th><th>Group</th><th>Admin</th><th>Portal</th>
+      </tr></thead>
+      <tbody>
+        <tr><th>Super Admin</th><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td></tr>
+        <tr><th>School Admin</th><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="n">·</td></tr>
+        <tr><th>Principal</th><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="y">●</td><td class="n">·</td><td class="n">·</td></tr>
+        <tr><th>Management</th><td class="p">◐</td><td class="p">◐</td><td class="p">◐</td><td class="p">◐</td><td class="p">◐</td><td class="p">◐</td><td class="p">◐</td><td class="p">◐</td><td class="p">◐</td><td class="p">◐</td><td class="p">◐</td><td class="n">·</td><td class="n">·</td></tr>
+        <tr><th>Teacher</th><td class="p">◐</td><td class="p">◐</td><td class="y">●</td><td class="p">◐</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="p">◐</td><td class="p">◐</td><td class="n">·</td><td class="n">·</td><td class="p">◐</td></tr>
+        <tr><th>HR</th><td class="p">◐</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="y">●</td><td class="p">◐</td><td class="n">·</td><td class="p">◐</td><td class="n">·</td><td class="n">·</td><td class="n">·</td></tr>
+        <tr><th>Finance</th><td class="p">◐</td><td class="p">◐</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="y">●</td><td class="n">·</td><td class="p">◐</td><td class="n">·</td><td class="p">◐</td><td class="n">·</td><td class="n">·</td><td class="n">·</td></tr>
+        <tr><th>Office</th><td class="p">◐</td><td class="y">●</td><td class="p">◐</td><td class="p">◐</td><td class="y">●</td><td class="p">◐</td><td class="p">◐</td><td class="p">◐</td><td class="y">●</td><td class="y">●</td><td class="n">·</td><td class="n">·</td><td class="n">·</td></tr>
+        <tr><th>Non-Teaching Staff</th><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="y">●</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="p">◐</td></tr>
+        <tr><th>Parent</th><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="p">◐</td><td class="n">·</td><td class="p">◐</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="y">●</td></tr>
+        <tr><th>Student</th><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="n">·</td><td class="p">◐</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout"><b>Read ◐ with the scope column in mind.</b> Teacher &ldquo;Students ◐&rdquo; means full read and
+    write on students in assigned sections, not partial access to all students. Parent &ldquo;Finance ◐&rdquo; means
+    complete control of their own children's fees. The scope narrows <em>which rows</em>; the permission narrows
+    <em>what you may do</em> to them.</div>
+</section>
+
+<footer>
+  <p><b>Edunex Smart School 360</b> &mdash; role workflows. Generated from the application source:
+  <code>backend/src/config/rbac.ts</code> for roles and permissions, <code>frontend/src/layouts/nav.ts</code> for
+  navigation, the route and service files for each flow, and <code>database/migrations/</code> for every status value
+  shown. Demo accounts carry fictional sample data only.</p>
+</footer>
+</main>

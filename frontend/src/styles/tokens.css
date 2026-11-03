@@ -1,0 +1,261 @@
+/* ==========================================================================
+   EDUNEX SMART SCHOOL 360 — DESIGN TOKENS
+   Edunex palette: Indigo #3B3FD9, Deep Indigo #2F32B8, Midnight #1E1B4B,
+   Teal #2DD4BF, Charcoal #171717, White.
+   Midnight-indigo navigation, cool-white workspace, white cards, teal accents.
+   Every text and focus colour meets WCAG 2.2 AA contrast.
+   One source of truth for colour, type, space, radius, elevation, motion.
+   Token names are stable; every component reads them, so the light and
+   dark themes only change values here.
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* ---- Brand palette ---------------------------------------------------- */
+  --brand:           #3B3FD9;   /* Edunex Indigo (white text 6.0:1) */
+  --brand-hover:     #2F32B8;   /* Deep Indigo */
+  --brand-strong:    #1E1B4B;   /* Midnight indigo: sidebar */
+  --brand-tint:      #EEF0FF;   /* Soft lavender */
+  --brand-tint-2:    #E0E3FF;
+  --brand-line:      #CDD2FA;
+  --brand-ring:      rgba(59, 63, 217, .22);
+  --accent:          #2DD4BF;   /* Edunex Teal */
+  --accent-strong:   #0F766E;   /* Teal text on light surfaces (5.5:1) */
+  --accent-tint:     #E6FAF7;
+  --accent-line:     #99E2D8;
+  --gold-deep-fill:  #14B8A6;   /* Active navigation gradient end */
+  --violet:          #6D4AD8;   /* Purple tiles */
+  --indigo:          #4F46E5;
+  --green:           #0F766E;
+  --orange:          #F5822F;
+  --sky:             #0EA5E9;
+
+  /* Names used across the screens — mapped to the palette */
+  --magenta:         var(--brand);
+  --magenta-light:   var(--brand-hover);
+  --magenta-dark:    var(--brand-strong);
+  --magenta-deep:    #12103A;   /* Deep midnight */
+  --magenta-tint:    var(--brand-tint);
+  --magenta-line:    var(--brand-line);
+  --gold:            var(--accent);
+  --gold-hover:      #14B8A6;
+  --gold-deep:       var(--accent-strong);
+  --gold-tint:       var(--accent-tint);
+  --gold-line:       var(--accent-line);
+  --navy:            var(--brand);
+  --navy-light:      var(--brand-hover);
+  --navy-deep:       var(--magenta-deep);
+  --amber:           #C27E0A;
+  --amber-hover:     #A56A04;
+  --teal:            #0F766E;   /* white text 5.5:1 */
+  --teal-hover:      #0B5E58;
+  --charcoal:        #171717;
+  --charcoal-light:  #2D3748;
+  --charcoal-muted:  #5B6475;
+  --charcoal-faint:  #9AA1AC;
+
+  /* ---- Surfaces --------------------------------------------------------- */
+  --bg:              #F6F7FB;   /* cool white */
+  --bg-sunken:       #EDEFF6;
+  --surface:         #FFFFFF;
+  --surface-alt:     #F9FAFD;
+  --surface-raised:  #FFFFFF;
+  --surface-navy:    #FFFFFF;
+  --surface-brand:   var(--brand);
+  --overlay:         rgba(12, 14, 40, .5);
+  --glass:           rgba(255, 255, 255, .8);
+  --hero-grad:       #25217A;
+
+  /* ---- Text ------------------------------------------------------------- */
+  --text:            #2F3447;
+  --text-strong:     #1B1E33;   /* dark navy-charcoal */
+  --text-muted:      #5A6070;   /* 6.0:1 on white */
+  --text-faint:      #676D7C;   /* 5.2:1 on white */
+  --text-invert:     #FFFFFF;
+  --text-on-navy:    #E6E8FF;
+
+  /* ---- Lines ------------------------------------------------------------ */
+  --border:          #E5E8F0;
+  --border-strong:   #CBD0DD;
+  --control-border:  #8A8FA3;   /* inputs, selects, switches: 3.4:1 against white (WCAG 1.4.11) */
+  --border-soft:     #EFF1F7;
+  --border-navy:     #F1F2F5;
+  --border-gold:     rgba(45, 212, 191, .4);
+
+  /* ---- Shell ------------------------------------------------------------ */
+  --sidebar-bg:          #1E1B4B;
+  --sidebar-border:      rgba(255, 255, 255, .08);
+  --sidebar-text:        rgba(255, 255, 255, .9);
+  --sidebar-text-strong: #FFFFFF;
+  --sidebar-muted:       #B4B7EE;   /* section captions: 7.9:1 on the sidebar */
+  --sidebar-hover:       rgba(255, 255, 255, .08);
+  --sidebar-active-bg:   linear-gradient(90deg, #5EEAD4, #2DD4BF);
+  --sidebar-active-text: #042F2E;
+  --topbar-bg:           #FFFFFF;
+  --topbar-border:       #E9EBF2;
+
+  /* ---- Status (semantic) ------------------------------------------------ */
+  --critical: #D21F3A;  --critical-tint: #FDEFF1;  --critical-line: #F8C7CF;  --critical-text: #A3162B;
+  --warning:  #E07A1F;  --warning-tint:  #FEF4EA;  --warning-line:  #F7D7B4;  --warning-text:  #8A4A0C;
+  --caution:  #B98A00;  --caution-tint:  #FDF8E6;  --caution-line:  #F1E2A8;  --caution-text:  #6E5200;
+  --info:     #3B3FD9;  --info-tint:     #EEF0FF;  --info-line:     #CDD2FA;  --info-text:     #2E31B0;
+  --success:  #0F766E;  --success-tint:  #E6FAF7;  --success-line:  #99E2D8;  --success-text:  #0B5E58;
+  --neutral:  #6B7280;  --neutral-tint:  #F3F4F6;  --neutral-line:  #DDE0E5;  --neutral-text:  #374151;
+
+  /* ---- Data-viz series -------------------------------------------------- */
+  --viz-1: #3B3FD9;
+  --viz-2: #14B8A6;
+  --viz-3: #F59E0B;
+  --viz-4: #8B5CF6;
+  --viz-5: #0EA5E9;
+  --viz-6: #E11D48;
+  --viz-7: #7C83F0;
+  --viz-8: #9AA1AC;
+  --viz-grid: #EEEFF3;
+  --viz-axis: #D6D9E0;
+
+  /* ---- Typography ------------------------------------------------------- */
+  --font-display: "Montserrat", "Noto Sans Tamil", "Noto Sans Devanagari", system-ui, sans-serif;
+  --font-ui: "Montserrat", "Noto Sans Tamil", "Noto Sans Devanagari", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Libre Baskerville", Georgia, "Times New Roman", serif;   /* greeting, headline figures, quotes */
+  --font-brand: var(--font-display);
+  --font-script: "Caveat", cursive;
+  --font-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  --fs-display: 26px;
+  --fs-h1:      22px;
+  --fs-h2:      15px;
+  --fs-h3:      14px;
+  --fs-body:    13.5px;
+  --fs-sm:      13px;
+  --fs-xs:      12px;
+  --fs-micro:   11px;
+
+  --lh-tight: 1.2;
+  --lh-snug:  1.35;
+  --lh-body:  1.55;
+
+  --track-caps: .06em;
+
+  /* ---- Space (4pt grid) ------------------------------------------------- */
+  --s-1: 4px;   --s-2: 8px;   --s-3: 12px;  --s-4: 16px;
+  --s-5: 20px;  --s-6: 24px;  --s-7: 32px;  --s-8: 40px;
+  --s-9: 48px;  --s-10: 64px;
+
+  /* ---- Radius ----------------------------------------------------------- */
+  --r-xs: 6px;  --r-sm: 8px;  --r-md: 10px;  --r-lg: 12px;  --r-xl: 16px;  --r-pill: 999px;
+
+  /* ---- Elevation (soft, indigo-tinted) ---------------------------------- */
+  --sh-1: 0 1px 2px rgba(16, 18, 52, .04), 0 2px 8px -2px rgba(16, 18, 52, .04);
+  --sh-2: 0 2px 4px rgba(16, 18, 52, .05), 0 10px 24px -10px rgba(16, 18, 52, .14);
+  --sh-3: 0 4px 10px -2px rgba(18, 16, 58, .06), 0 22px 44px -12px rgba(18, 16, 58, .2);
+  --sh-4: 0 24px 64px -16px rgba(14, 12, 48, .3);
+  --sh-gold: 0 4px 14px rgba(45, 212, 191, .35);
+  --sh-brand: 0 6px 18px -6px rgba(59, 63, 217, .45);
+  --sh-focus: 0 0 0 2px var(--surface), 0 0 0 4px var(--brand);
+
+  /* ---- Layout ----------------------------------------------------------- */
+  --sidebar-w: 270px;
+  --sidebar-w-collapsed: 72px;
+  --topbar-h: 68px;
+  --content-max: 1440px;
+  --page-x: 24px;          /* horizontal page gutter */
+  --page-y: 16px;          /* top padding of a page */
+  --control-h: 38px;       /* default button / input height */
+  --control-h-sm: 32px;    /* toolbars and filters; above the 24px WCAG 2.2 target minimum */
+
+  /* ---- Motion ----------------------------------------------------------- */
+  --t-fast: 150ms cubic-bezier(.4, 0, .2, 1);
+  --t-base: 220ms cubic-bezier(.4, 0, .2, 1);
+  --t-slow: 340ms cubic-bezier(.22, 1, .36, 1);
+
+  /* ---- Z-index scale ---------------------------------------------------- */
+  --z-base: 1;
+  --z-sticky: 10;
+  --z-nav: 20;
+  --z-overlay: 30;
+  --z-modal: 50;
+  --z-toast: 60;
+}
+
+/* ==========================================================================
+   DARK THEME — the same hues, lifted for contrast on dark midnight surfaces
+   ========================================================================== */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --brand:           #8B8FF7;
+  --brand-hover:     #A5A8FA;
+  --brand-strong:    #C7C9FD;
+  --brand-tint:      rgba(139, 143, 247, .12);
+  --brand-tint-2:    rgba(139, 143, 247, .2);
+  --brand-line:      rgba(139, 143, 247, .32);
+  --brand-ring:      rgba(139, 143, 247, .38);
+  --accent:          #2DD4BF;
+  --accent-strong:   #5EEAD4;
+  --accent-tint:     rgba(45, 212, 191, .1);
+  --accent-line:     rgba(45, 212, 191, .3);
+  --magenta-deep:    #12103A;
+  --gold-hover:      #5EEAD4;
+  --amber:           #E9A23B;
+  --amber-hover:     #F2B85C;
+  --teal:            #2DD4BF;
+  --teal-hover:      #5EEAD4;
+  --charcoal:        #F1F2F7;
+
+  --bg:              #0B0C16;
+  --bg-sunken:       #141626;
+  --surface:         #131526;
+  --surface-alt:     #171A2D;
+  --surface-raised:  #1C1F35;
+  --surface-navy:    #131526;
+  --overlay:         rgba(0, 0, 0, .62);
+  --glass:           rgba(19, 21, 38, .8);
+  --hero-grad:       #1A1850;
+
+  --text:            #CDD0E0;
+  --text-strong:     #F3F4FA;
+  --text-muted:      #9EA2B8;
+  --text-faint:      #9094AB;   /* 5.6:1 on the dark surface */
+  --text-on-navy:    #E6E8FF;
+
+  --border:          #262A40;
+  --border-strong:   #343957;
+  --control-border:  #6E7391;
+  --border-soft:     #1B1E31;
+  --border-navy:     #1B1E31;
+
+  --sidebar-bg:          #0F0E2E;
+  --sidebar-border:      #23264A;
+  --sidebar-text:        #B4B7D0;
+  --sidebar-text-strong: #F3F4FA;
+  --sidebar-muted:       #A0A4D8;
+  --sidebar-hover:       #1A1B3D;
+  --topbar-bg:           rgba(11, 12, 22, .82);
+  --topbar-border:       #23264A;
+
+  --critical: #F0697A;  --critical-tint: rgba(240, 105, 122, .1);  --critical-line: rgba(240, 105, 122, .3);  --critical-text: #F8A5B0;
+  --warning:  #E9A23B;  --warning-tint:  rgba(233, 162, 59, .1);   --warning-line:  rgba(233, 162, 59, .3);   --warning-text:  #F4C47F;
+  --caution:  #D9B838;  --caution-tint:  rgba(217, 184, 56, .08);  --caution-line:  rgba(217, 184, 56, .28);  --caution-text:  #EBD27A;
+  --info:     #A5A8FA;  --info-tint:     rgba(139, 143, 247, .12); --info-line:     rgba(139, 143, 247, .32); --info-text:     #C7C9FD;
+  --success:  #2DD4BF;  --success-tint:  rgba(45, 212, 191, .1);   --success-line:  rgba(45, 212, 191, .28);  --success-text:  #5EEAD4;
+  --neutral:  #9EA2B8;  --neutral-tint:  rgba(158, 162, 184, .1);  --neutral-line:  rgba(158, 162, 184, .26); --neutral-text:  #CDD0E0;
+
+  --viz-1: #8B8FF7;
+  --viz-2: #2DD4BF;
+  --viz-3: #FBBF24;
+  --viz-4: #A78BFA;
+  --viz-5: #38BDF8;
+  --viz-6: #FB7185;
+  --viz-7: #B4B7FB;
+  --viz-8: #9EA2B8;
+  --viz-grid: #23263A;
+  --viz-axis: #3A3F5C;
+
+  --sh-1: 0 1px 2px rgba(0, 0, 0, .4);
+  --sh-2: 0 8px 24px -8px rgba(0, 0, 0, .6);
+  --sh-3: 0 16px 40px -10px rgba(0, 0, 0, .7);
+  --sh-4: 0 28px 70px -16px rgba(0, 0, 0, .8);
+  --sh-brand: 0 6px 18px -6px rgba(139, 143, 247, .45);
+}
