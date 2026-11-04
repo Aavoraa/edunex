@@ -1,8 +1,9 @@
 # backend/app/routers/settings.py
-"""Settings -> AI Configuration (administrators). The Claude key goes in, never comes back out."""
+"""Settings -> AI Configuration (administrators). API keys go in, never come back out."""
 
 from __future__ import annotations
 
+import re
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -25,7 +26,10 @@ DB = Annotated[Session, Depends(get_db)]
 def get_ai(_: AdminUser, db: DB) -> dict:
     cfg = ai_config.load(db)
     return {"config": ai_config.public_view(cfg),
-            "options": {"models": [{"id": m, "label": label} for m, label in ai_config.MODELS],
+            "options": {"providers": [{"id": p, "label": v["label"], "company": v["company"], "key_prefix": v["key_prefix"],
+                                       "models": [{"id": m, "label": label} for m, label in v["models"]]}
+                                      for p, v in ai_config.PROVIDERS.items()],
+                        "models": [{"id": m, "label": label} for m, label in ai_config.MODELS],
                         "efforts": list(ai_config.EFFORTS)}}
 
 
@@ -33,11 +37,12 @@ def get_ai(_: AdminUser, db: DB) -> dict:
 def ai_status(_: StaffUser, db: DB) -> dict:
     """What staff screens need to know (no keys)."""
     cfg = ai_config.load(db)
-    reading_ok, reading_why = cfg.claude_vision_ready()
-    marking_ok, marking_why = cfg.claude_ready()
+    reading_ok, reading_why = cfg.vision_ready()
+    marking_ok, marking_why = cfg.ai_ready()
     return {"reading_available": reading_ok, "reading_reason": reading_why,
             "marking_available": marking_ok, "marking_reason": marking_why,
-            "vision_model": cfg.claude_vision_model, "eval_model": cfg.claude_eval_model}
+            "provider": cfg.provider, "provider_label": cfg.provider_label,
+            "vision_model": cfg.vision_model, "eval_model": cfg.eval_model}
 
 
 class AIUpdate(BaseModel):
@@ -47,9 +52,16 @@ class AIUpdate(BaseModel):
 @router.put("/ai")
 def put_ai(body: AIUpdate, admin: AdminUser, db: DB) -> dict:
     changes = dict(body.changes)
+    current = ai_config.load(db)
+    if "ai_provider" in changes and changes["ai_provider"] not in ai_config.PROVIDERS:
+        raise HTTPException(400, "Unknown AI provider.")
     for key in ("claude_vision_model", "claude_eval_model"):
         if key in changes and not str(changes[key] or "").startswith("claude-"):
             raise HTTPException(400, "Choose a Claude model.")
+    for provider in ("openai", "gemini"):
+        for key in (f"{provider}_vision_model", f"{provider}_eval_model"):
+            if key in changes and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{1,99}", str(changes[key] or "")):
+                raise HTTPException(400, "Enter a model id, e.g. gpt-5 or gemini-2.5-pro.")
     if "claude_effort" in changes and changes["claude_effort"] not in ai_config.EFFORTS:
         raise HTTPException(400, "Unknown effort level.")
     if "redact_top_percent" in changes:
@@ -58,9 +70,14 @@ def put_ai(body: AIUpdate, admin: AdminUser, db: DB) -> dict:
                 raise ValueError
         except (TypeError, ValueError):
             raise HTTPException(400, "Blanking must be between 0 and 50 %.") from None
-    if changes.get("external_processing_acknowledged") is True:
-        changes["external_processing_acknowledged_by"] = {"user": admin.name, "at": now().isoformat() + "Z"}
-    elif changes.get("external_processing_acknowledged") is False:
+    provider = changes.get("ai_provider", current.provider)
+    ack = changes.get("external_processing_acknowledged")
+    if ack is True and not (current.acknowledged() and provider == current.provider):
+        # The acknowledgement covers one provider: a different one must be acknowledged afresh.
+        changes["external_processing_acknowledged_by"] = {"user": admin.name, "at": now().isoformat() + "Z",
+                                                          "provider": provider}
+    elif ack is False or (provider != current.provider and ack is not True):
+        changes["external_processing_acknowledged"] = False
         changes["external_processing_acknowledged_by"] = None
     changed = ai_config.save(db, changes, admin.id)
     audit(db, admin, "ai_configuration_changed", "settings", None, keys=changed)  # never the values
@@ -78,7 +95,7 @@ def _sample_page() -> bytes:
 
 
 @router.post("/ai/test/{target}")
-def test_claude(target: str, admin: AdminUser, db: DB, sample: bool = False) -> dict:
+def test_ai(target: str, admin: AdminUser, db: DB, sample: bool = False) -> dict:
     """target: reading | marking. With sample=true, reading also reads a generated sample page."""
     cfg = ai_config.load(db)
     try:
@@ -99,6 +116,6 @@ def test_claude(target: str, admin: AdminUser, db: DB, sample: bool = False) -> 
             out["sample_duration_ms"] = r.duration_ms
     except ProviderError as exc:
         out = {"ok": False, "target": target, "detail": str(exc), "kind": exc.kind}
-    audit(db, admin, "claude_tested", "settings", None, target=target, ok=out["ok"])
+    audit(db, admin, "claude_tested", "settings", None, target=target, provider=cfg.provider, ok=out["ok"])
     db.commit()
     return out

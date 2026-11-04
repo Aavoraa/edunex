@@ -3,7 +3,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { useApiMutation, useApiQuery, usePagedQuery } from '@/hooks/useApi';
 import { useLookups } from '@/hooks/useLookups';
 import {
-  Badge, Button, Card, DataTable, ErrorState, FilterSelect, Icon, InlineError, Modal, Page, PageHead, Pagination, SearchInput, SelectField,
+  Badge, Button, Card, DataTable, ErrorState, FilterSelect, Icon, InlineError, Modal, Pagination, SearchInput, SelectField,
   Status, TextArea, TextField, useConfirm, Toolbar,
 } from '@/components/ui';
 import { serverFieldErrors } from './shared';
@@ -18,23 +18,22 @@ const TYPES = [{ value: 'short', label: 'Short answer' }, { value: 'mcq', label:
 const TYPE_LABEL = Object.fromEntries(TYPES.map((t) => [t.value, t.label]));
 const DIFF_TONE: Record<string, string> = { Higher: 'warning', Core: 'neutral', Foundation: 'info', Mixed: 'neutral' };
 
-export default function QuestionBankPage() {
+/** The Question Bank tab of the Subjects page. */
+export function QuestionBank({ subjectId, onSubjectChange }: { subjectId: string; onSubjectChange: (id: string) => void }) {
   const { can } = useAuth();
   const { lookups } = useLookups();
-  const [subjectId, setSubjectId] = useState('');
   const [search, setSearch] = useState('');
   const q = useApiQuery<Topic[]>('/academics/question-bank/topics', { subjectId: subjectId || undefined, q: search || undefined });
   const [browse, setBrowse] = useState<Topic | null>(null);
   const [adding, setAdding] = useState(false);
 
   return (
-    <Page>
-      <PageHead title="Question Bank" sub="Approved questions, tagged to Cambridge objectives and reused across assessments."
-        actions={can('academics.manage') && <Button variant="primary" icon="plus" onClick={() => setAdding(true)}>Add question</Button>} />
+    <>
       <Card flush>
         <Toolbar>
           <SearchInput value={search} onSearch={setSearch} placeholder="Search topics" />
-          <FilterSelect label="Subject" value={subjectId} onChange={setSubjectId} options={(lookups?.subjects ?? []).map((x) => ({ value: x.id, label: x.name }))} />
+          <FilterSelect label="Subject" value={subjectId} onChange={onSubjectChange} options={(lookups?.subjects ?? []).map((x) => ({ value: x.id, label: x.name }))} />
+          {can('academics.manage') && <><div className="spacer" /><Button variant="primary" icon="plus" onClick={() => setAdding(true)}>Add question</Button></>}
         </Toolbar>
         {q.error ? <ErrorState error={q.error} onRetry={() => q.refetch()} /> : (
           <DataTable
@@ -57,7 +56,7 @@ export default function QuestionBankPage() {
       </Card>
       {browse && <BrowseModal topic={browse} onClose={() => setBrowse(null)} />}
       {adding && <QuestionForm onClose={() => setAdding(false)} />}
-    </Page>
+    </>
   );
 }
 

@@ -114,7 +114,9 @@ function bandsOf(s: GradeScale): ExpectationBand {
 /**
  * Expectation bands for academic performance, derived from a board's scale:
  * IGCSE — above expectation = grade B or better, at expectation = grade C;
- * Matriculation and CBSE — above = B1 or better, at = B2; below expectation is under that.
+ * Matriculation and CBSE — above = B1 or better, at = B2; ICSE — above = B+ or better,
+ * at = B; NIOS — above = B (first division) or better, at = C; IB — above = 6 or better,
+ * at = 5; below expectation is under that.
  */
 export async function expectationBands(board?: Board | null) {
   return bandsOf(await getScale(board));
@@ -129,6 +131,9 @@ export async function expectationsByBoard(): Promise<Record<Board, ExpectationBa
 const NOTES: Record<Board, string> = {
   igcse: 'Indicative school boundaries. Cambridge International publishes component grade thresholds for each exam series; update these boundaries to match the thresholds for the series you are preparing for.',
   matriculation: 'Indicative school boundaries in the CCE style used by Tamil Nadu State Board and Matriculation schools; the pass mark is 35%. Update them if the school follows a different internal scheme. Class 10 SSLC public examination results are reported as marks by the Directorate of Government Examinations.',
+  ib: 'Indicative school boundaries. The IB sets grade boundaries for each subject and examination session; a diploma needs 24 of the 45 points (six subjects graded 7–1 plus up to 3 core points), no grade below 2, at most two 2s and at most three grades of 3 or below.',
+  nios: 'Indicative school boundaries for NIOS learners, in division bands. NIOS reports results as marks: a subject is passed with 33% (theory and practical where applicable), five subjects including one or two languages are needed, and tutor-marked assignments carry about 20%.',
+  icse: 'Indicative school boundaries for ICSE classes. CISCE reports ICSE results as marks; a candidate needs 33% in each subject and in aggregate. Update the letters to the school’s scheme.',
   cbse: 'Indicative school boundaries in the CBSE A1–E style; the pass mark is 33%. For Class X and XII board examinations CBSE awards grades by rank among passed candidates, so use these bands for school assessments and update them to the school’s scheme.',
 };
 

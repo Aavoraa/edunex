@@ -10,6 +10,12 @@
  *     CCE style of Tamil Nadu State Board / Matriculation schools; D starts at
  *     35%, the Tamil Nadu pass mark.
  *   - CBSE (cbse): eight-point A1–E grades; D starts at 33%, the CBSE pass mark.
+ *   - ICSE (icse): CISCE reports marks; an indicative A+–E school scale with D
+ *     from 33%, the CISCE pass mark.
+ *   - NIOS (nios): NIOS reports marks; an indicative A–E scale in division bands
+ *     with D from 33%, the NIOS pass mark.
+ *   - IB Diploma Programme (ib): subject grades 7 to 1; a diploma needs 24 of 45
+ *     points. Indicative percentage boundaries (the IB sets them per session).
  *
  * The percentage boundaries are indicative school defaults. They live in the
  * database (grade_boundaries, migrations 115 and 125) and can be edited by
@@ -19,7 +25,9 @@
 
 export type Tier = 'Core' | 'Extended';
 
-export const BOARDS = ['igcse', 'matriculation', 'cbse'] as const;
+export const BOARDS = ['igcse', 'matriculation', 'cbse', 'icse', 'nios', 'ib'] as const;
+/** Boards whose syllabuses come from a board catalogue (migrations 128, 130). */
+export const CATALOGUE_BOARDS = ['matriculation', 'cbse', 'icse', 'nios', 'ib'] as const;
 export type Board = (typeof BOARDS)[number];
 export const DEFAULT_BOARD: Board = 'igcse';
 
@@ -150,8 +158,88 @@ export const CBSE_SCALE: GradeScale = {
   updatedBy: null,
 };
 
+export const ICSE_SCALE_KEY = 'icse_a_plus_e';
+
+/** ICSE defaults — must match the rows inserted by database/migrations/130_icse_board.sql. */
+export const ICSE_BOUNDARIES: GradeBoundary[] = [
+  { grade: 'A+', minPercent: 90, points: 10, description: 'Outstanding', tone: 'success', sortOrder: 1 },
+  { grade: 'A', minPercent: 80, points: 9, description: 'Excellent', tone: 'success', sortOrder: 2 },
+  { grade: 'B+', minPercent: 70, points: 8, description: 'Very good', tone: 'info', sortOrder: 3 },
+  { grade: 'B', minPercent: 60, points: 7, description: 'Good', tone: 'info', sortOrder: 4 },
+  { grade: 'C+', minPercent: 50, points: 6, description: 'Above average', tone: 'neutral', sortOrder: 5 },
+  { grade: 'C', minPercent: 40, points: 5, description: 'Average', tone: 'neutral', sortOrder: 6 },
+  { grade: 'D', minPercent: 33, points: 4, description: 'Pass', tone: 'warning', sortOrder: 7 },
+  { grade: 'E', minPercent: 0, points: 0, description: 'Below pass — needs improvement', tone: 'critical', sortOrder: 8 },
+];
+
+export const ICSE_SCALE: GradeScale = {
+  id: null,
+  key: ICSE_SCALE_KEY,
+  board: 'icse',
+  boardName: 'ICSE',
+  name: 'ICSE (A+ to E)',
+  description: 'Indicative school grades for ICSE classes. CISCE reports ICSE results as marks with a 33% pass mark in each subject and in aggregate; D starts at 33% and E is below the pass mark.',
+  boundaries: ICSE_BOUNDARIES,
+  tierRules: {},
+  expectation: { above: 'B+', at: 'B' },
+  updatedAt: null,
+  updatedBy: null,
+};
+
+export const NIOS_SCALE_KEY = 'nios_a_e';
+
+/** NIOS defaults — must match the rows inserted by database/migrations/131_nios_board.sql. */
+export const NIOS_BOUNDARIES: GradeBoundary[] = [
+  { grade: 'A', minPercent: 75, points: 4, description: 'Distinction', tone: 'success', sortOrder: 1 },
+  { grade: 'B', minPercent: 60, points: 3, description: 'First division', tone: 'info', sortOrder: 2 },
+  { grade: 'C', minPercent: 45, points: 2, description: 'Second division', tone: 'neutral', sortOrder: 3 },
+  { grade: 'D', minPercent: 33, points: 1, description: 'Pass', tone: 'warning', sortOrder: 4 },
+  { grade: 'E', minPercent: 0, points: 0, description: 'Below pass — needs improvement', tone: 'critical', sortOrder: 5 },
+];
+
+export const NIOS_SCALE: GradeScale = {
+  id: null,
+  key: NIOS_SCALE_KEY,
+  board: 'nios',
+  boardName: 'NIOS',
+  name: 'NIOS (A to E)',
+  description: 'Indicative school grades for NIOS learners in division bands. NIOS reports results as marks; a subject is passed with 33%, so D starts at 33% and E is below the pass mark.',
+  boundaries: NIOS_BOUNDARIES,
+  tierRules: {},
+  expectation: { above: 'B', at: 'C' },
+  updatedAt: null,
+  updatedBy: null,
+};
+
+export const IB_SCALE_KEY = 'ib_dp_7_1';
+
+/** IB defaults — must match the rows inserted by database/migrations/132_ib_board.sql. */
+export const IB_BOUNDARIES: GradeBoundary[] = [
+  { grade: '7', minPercent: 80, points: 7, description: 'Excellent', tone: 'success', sortOrder: 1 },
+  { grade: '6', minPercent: 70, points: 6, description: 'Very good', tone: 'success', sortOrder: 2 },
+  { grade: '5', minPercent: 60, points: 5, description: 'Good', tone: 'info', sortOrder: 3 },
+  { grade: '4', minPercent: 50, points: 4, description: 'Satisfactory', tone: 'info', sortOrder: 4 },
+  { grade: '3', minPercent: 40, points: 3, description: 'Mediocre', tone: 'neutral', sortOrder: 5 },
+  { grade: '2', minPercent: 30, points: 2, description: 'Poor', tone: 'warning', sortOrder: 6 },
+  { grade: '1', minPercent: 0, points: 1, description: 'Very poor', tone: 'critical', sortOrder: 7 },
+];
+
+export const IB_SCALE: GradeScale = {
+  id: null,
+  key: IB_SCALE_KEY,
+  board: 'ib',
+  boardName: 'IB',
+  name: 'IB Diploma Programme (7 to 1)',
+  description: 'IB DP subject grades 7 (excellent) to 1 (very poor). A diploma needs 24 of 45 points and no grade below 2. The IB sets grade boundaries per subject and session; these percentages are indicative school boundaries.',
+  boundaries: IB_BOUNDARIES,
+  tierRules: {},
+  expectation: { above: '6', at: '5' },
+  updatedAt: null,
+  updatedBy: null,
+};
+
 /** Built-in scale per board (fallback when the database scale is unavailable). */
-export const DEFAULT_SCALES: Record<Board, GradeScale> = { igcse: DEFAULT_SCALE, matriculation: MATRICULATION_SCALE, cbse: CBSE_SCALE };
+export const DEFAULT_SCALES: Record<Board, GradeScale> = { igcse: DEFAULT_SCALE, matriculation: MATRICULATION_SCALE, cbse: CBSE_SCALE, icse: ICSE_SCALE, nios: NIOS_SCALE, ib: IB_SCALE };
 
 /** Cambridge IGCSE grade letters best → worst (A*, A, … G, U). */
 export const GRADE_ORDER = DEFAULT_BOUNDARIES.map((b) => b.grade);
@@ -193,4 +281,38 @@ export function defaultGradeFor(percent: number, tier?: Tier | null, board: Boar
 export function minPercentFor(scale: Pick<GradeScale, 'boundaries'>, grade: string) {
   const b = scale.boundaries.find((x) => x.grade === grade);
   return b ? Number(b.minPercent) : null;
+}
+
+/**
+ * General subject categories, common to every board — must match the CHECK in
+ * database/migrations/129_subject_categories.sql.
+ */
+export const SUBJECT_CATEGORIES = [
+  'Languages', 'Mathematics', 'Science', 'Social Science', 'Environmental & Integrated Studies',
+  'Commerce & Accounts', 'Computer Science', 'Arts & Music', 'Physical Education & Health', 'Vocational', 'Other',
+] as const;
+export type SubjectCategory = (typeof SUBJECT_CATEGORIES)[number];
+
+/**
+ * Best general category for a subject name (e.g. a board-catalogue subject such as
+ * "Tamil & English" → Languages, "Bio-Botany" → Science). `group` is the
+ * catalogue's own grouping (Languages, Vocational …) when there is one.
+ */
+export function guessSubjectCategory(name: string, group?: string | null): SubjectCategory {
+  const n = name.toLowerCase();
+  const g = (group ?? '').toLowerCase();
+  if (/evs|maths, science|science & social|maths & /.test(n)) return 'Environmental & Integrated Studies';
+  if (g === 'languages' || /reader|english|tamil|hindi|sanskrit|urdu|arabic|french|german|telugu|kannada|malayalam|language/.test(n)) return 'Languages';
+  if (/accountancy|commerce|business|book keeping|entrepreneur|auditing|office management|financial|banking/.test(n)) return 'Commerce & Accounts';
+  if (/math|statistic/.test(n)) return 'Mathematics';
+  if (/computer|computing|informatics|artificial intelligence|data science|information technology|\bict\b/.test(n)) return 'Computer Science';
+  if (/physical education|health|well being|ncc|cadet|yoga|sport/.test(n)) return 'Physical Education & Health';
+  if (/music|carnatic|hindustani|painting|dance|fine arts|art education|art and design|graphics|drawing/.test(n)) return 'Arts & Music';
+  if (g === 'vocational' || /engineering|nursing|textile|food|agricultur|employability|nutrition|home science|work experience|dress/.test(n)) return 'Vocational';
+  if (/theory of knowledge|extended essay|creativity, activity/.test(n)) return 'Other';
+  if (/physics|chemistry|biology|botany|zoology|bio-|micro ?biology|biotechnology|science/.test(n)) return 'Science';
+  if (/social|history|geography|political|politics|economics|sociology|psychology|anthropology|philosophy|religions|legal|law|ethics|knowledge tradition|civics|culture|heritage|military|digital society/.test(n)) return 'Social Science';
+  if (/^language |literature|ab initio|classical languages/.test(n)) return 'Languages';
+  if (/film|theatre|visual arts|design technology/.test(n)) return 'Arts & Music';
+  return 'Other';
 }

@@ -59,8 +59,11 @@ function moveFocus(e: React.KeyboardEvent<HTMLInputElement>, row: number) {
   }
 }
 
-/** Every assessment, or (with `board`) only those of classes on one board — Academics → IGCSE / Matric / CBSE Assessments. */
-export default function AssessmentsPage({ board }: { board?: Board } = {}) {
+/**
+ * Every assessment, or (with `board`) only those of classes on one board — Academics → IGCSE / Matric / CBSE Assessments.
+ * `embedded` drops the page frame for the Assessments tab of Subjects & Assessments.
+ */
+export default function AssessmentsPage({ board, embedded }: { board?: Board; embedded?: boolean } = {}) {
   const { can } = useAuth();
   const { campusParam } = useSchool();
   const { lookups } = useLookups();
@@ -71,19 +74,10 @@ export default function AssessmentsPage({ board }: { board?: Board } = {}) {
   const [creating, setCreating] = useState(false);
   const [marksFor, setMarksFor] = useState<string | null>(null);
   const s = summary.data;
+  const createButton = can('assessments.manage') && <Button variant="primary" icon="plus" onClick={() => setCreating(true)}>Create assessment</Button>;
 
-  return (
-    <Page>
-      <PageHead
-        title={board ? `${boardLabel(board, true)} Assessments` : 'Assessments'}
-        sub={board
-          ? `Assessments of classes on the ${boardLabel(board)} board, graded ${scaleRange(board).replace(boardLabel(board) + ' ', '')}: creation, marks entry, moderation and grade calculation.`
-          : 'Creation, marks entry, moderation, grade calculation, predicted grades and performance trends.'}
-        actions={<>
-          <Button icon="helpCircle" to="/question-bank">Question bank</Button>
-          {can('assessments.manage') && <Button variant="primary" icon="plus" onClick={() => setCreating(true)}>Create assessment</Button>}
-        </>}
-      />
+  const body = (
+    <>
       {board && lookups && !lookups.classes.some((c) => (c.board ?? 'igcse') === board && (!campusParam.campusId || c.campusId === campusParam.campusId)) && (
         <div className="mb-4"><Banner tone="neutral" icon="info">No classes on this campus follow the {boardLabel(board)} board. Choose another campus, or move a class to this board from {boardInfo(board).menu} Grading.</Banner></div>
       )}
@@ -102,6 +96,7 @@ export default function AssessmentsPage({ board }: { board?: Board } = {}) {
             <SearchInput value={list.q} onSearch={list.setQ} placeholder="Search by name or code" />
             <FilterSelect label="Status" value={list.filters.status} onChange={(v) => list.setFilter('status', v)} options={['Scheduled', 'In Progress', 'Moderation', 'Completed']} />
             <FilterSelect label="Subject" value={list.filters.subjectId} onChange={(v) => list.setFilter('subjectId', v)} options={(lookups?.subjects ?? []).map((x) => ({ value: x.id, label: x.name }))} />
+            {embedded && createButton && <><div className="spacer" />{createButton}</>}
           </Toolbar>
           {q.error ? <ErrorState error={q.error} onRetry={() => q.refetch()} /> : (
             <DataTable
@@ -168,6 +163,22 @@ export default function AssessmentsPage({ board }: { board?: Board } = {}) {
 
       {creating && <CreateAssessmentModal board={board} onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setMarksFor(id); }} />}
       {marksFor && <MarksModal id={marksFor} onClose={() => setMarksFor(null)} />}
+    </>
+  );
+  if (embedded) return body;
+  return (
+    <Page>
+      <PageHead
+        title={board ? `${boardLabel(board, true)} Assessments` : 'Assessments'}
+        sub={board
+          ? `Assessments of classes on the ${boardLabel(board)} board, graded ${scaleRange(board).replace(boardLabel(board) + ' ', '')}: creation, marks entry, moderation and grade calculation.`
+          : 'Creation, marks entry, moderation, grade calculation, predicted grades and performance trends.'}
+        actions={<>
+          <Button icon="helpCircle" to="/subjects?tab=questions">Question bank</Button>
+          {createButton}
+        </>}
+      />
+      {body}
     </Page>
   );
 }

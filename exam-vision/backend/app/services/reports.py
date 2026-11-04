@@ -113,7 +113,8 @@ def exam_report(db: Session, exam: Exam) -> dict:
     totals = [r["total"] for r in student_rows if r["marked"]]
     return {
         "exam": {"id": exam.id, "name": exam.name, "subject": exam.subject, "class_name": exam.class_name,
-                 "section": exam.section, "results_status": exam.results_status,
+                 "section": exam.section, "results_status": exam.results_status, "board": exam.board,
+                 "component_id": exam.component_id, "tier": exam.tier,
                  "maximum": sum(q.max_marks for q in questions)},
         "summary": {
             "submissions": len(subs),

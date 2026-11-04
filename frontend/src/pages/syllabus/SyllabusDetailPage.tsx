@@ -10,7 +10,7 @@ import {
 } from '@/components/ui';
 import { fmt, todayKey } from '@/lib/format';
 import {
-  COVERAGE_TONE, GradeDocs, StageBanner, SyllabusForm, TierBadge, TYPE_LABEL, fieldErrors, gradesLabel, minutes, syllabusBase,
+  BoardDocs, COVERAGE_TONE, GradeDocs, StageBanner, SyllabusForm, TierBadge, TYPE_LABEL, fieldErrors, gradesLabel, minutes, syllabusBase,
   type ComponentTier, type CoverageStatus, type EntryRow, type SyllabusComponent, type SyllabusDetail, type SyllabusTopic,
 } from './shared';
 import { boardInfo } from '@/lib/grades';
@@ -135,7 +135,7 @@ function OverviewTab({ s }: { s: SyllabusDetail }) {
             ['Taught in', gradesLabel(s.gradeLevels, s.board)],
             ['Awarding body', s.awardingBody],
             [s.board !== 'igcse' ? 'Textbook edition' : 'Exam series', s.examSeriesYears ?? '—'],
-            ['Grading', s.board !== 'igcse' ? `${boardInfo(s.board).range} · D (${boardInfo(s.board).passMark}%) and above is a pass` : s.tiered ? 'A*–G · Core C–G (capped at C), Extended A*–E' : 'A*–G, U below G'],
+            ['Grading', s.board === 'ib' ? '7 (excellent) to 1 · a diploma needs 24 of 45 points' : s.board !== 'igcse' ? `${boardInfo(s.board).range} · D (${boardInfo(s.board).passMark}%) and above is a pass` : s.tiered ? 'A*–G · Core C–G (capped at C), Extended A*–E' : 'A*–G, U below G'],
             ['Status', s.isActive ? 'Active' : 'Inactive'],
           ]} />
         </Card>
@@ -145,6 +145,17 @@ function OverviewTab({ s }: { s: SyllabusDetail }) {
             {s.cambridge.subjectPage && (
               <a className="row g-2 mt-3 t-sm" style={{ alignItems: 'center' }} href={s.cambridge.subjectPage} target="_blank" rel="noopener noreferrer">
                 Cambridge subject page — past papers, all syllabus versions <Icon name="external" size={14} />
+              </a>
+            )}
+          </Card>
+        )}
+        {s.catalogue && (
+          <Card icon="bookOpen" title={boardInfo(s.board).catalogue?.docs ?? 'Official documents'}
+            sub={`${s.catalogue.subject} · ${s.catalogue.category} — the official documents for ${gradesLabel(s.gradeLevels, s.board)}`}>
+            <BoardDocs board={s.board} byGrade={s.catalogue.byGrade} />
+            {s.catalogue.sourcePage && (
+              <a className="row g-2 mt-3 t-sm" style={{ alignItems: 'center' }} href={s.catalogue.sourcePage} target="_blank" rel="noopener noreferrer">
+                {boardInfo(s.board).catalogue?.sourceLink ?? 'Official page'} <Icon name="external" size={14} />
               </a>
             )}
           </Card>

@@ -278,7 +278,11 @@ export async function status(user: AuthUser) {
 // ---------------------------------------------------------------------------
 
 interface ExamReport {
-  exam: { id: string; name: string; subject: string; class_name: string; section: string; results_status: string; maximum: number };
+  exam: {
+    id: string; name: string; subject: string; class_name: string; section: string; results_status: string; maximum: number;
+    /** The exam's board and syllabus paper (Edunex syllabus component); '' when not recorded. */
+    board?: string; component_id?: string;
+  };
   students: { admission_no: string; name: string; total: number; maximum: number; approved: boolean }[];
 }
 
@@ -297,6 +301,13 @@ export async function pushMarks(req: Request, examId: string, assessmentId: stri
   }
   const assessment = await getAssessment(user, assessmentId); // scope: 404 outside the caller's sections
   if (assessment.locked) throw conflict(assessment.lockReason ?? 'Marks are locked', 'ASSESSMENT_LOCKED');
+  // Marks stay within their board and paper: they are graded on that board's scale.
+  if (report.exam.board && assessment.board !== report.exam.board) {
+    throw conflict('This examination follows a different board from the class of the assessment; choose an assessment of the same board', 'BOARD_MISMATCH');
+  }
+  if (report.exam.component_id && assessment.component && assessment.component.id !== report.exam.component_id) {
+    throw conflict('The assessment is for a different syllabus paper; choose one for the same paper, or one not linked to a paper', 'PAPER_MISMATCH');
+  }
   const max = Number(assessment.maxMarks);
   const byNo = new Map(assessment.students.map((s: { id: string; admissionNo: string }) => [s.admissionNo, s.id]));
 

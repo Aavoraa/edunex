@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { paginationSchema } from '../utils/pagination.js';
-import { BOARDS } from '../services/grading-shared.js';
+import { BOARDS, CATALOGUE_BOARDS, SUBJECT_CATEGORIES } from '../services/grading-shared.js';
 
 const uuid = z.uuid();
 const optUuid = z.uuid().optional();
@@ -20,7 +20,7 @@ export const topicParams = z.object({ id: uuid, topicId: uuid });
 // ---- Grading -------------------------------------------------------------------
 const gradeLetter = z.string().trim().min(1).max(4);
 const tierRule = z.object({ highest: gradeLetter, lowest: gradeLetter });
-const board = z.enum(BOARDS, 'Choose IGCSE, Matriculation or CBSE');
+const board = z.enum(BOARDS, 'Choose IGCSE, Matriculation, CBSE or ICSE');
 export const boardQuery = z.object({ board: board.optional() });
 export const boardsQuery = z.object({ campusId: optUuid });
 export const classBoardUpdate = z.object({
@@ -76,15 +76,32 @@ const syllabusFields = {
 };
 export const syllabusCreate = z.object(syllabusFields);
 export const catalogueQuery = z.object({
+  /** Cambridge IGCSE (default), or the Matriculation (TN State Board) / CBSE catalogue. */
+  board: board.default('igcse'),
   q: z.string().trim().max(100).optional(),
   grading: z.enum(['A*-G', '9-1']).optional(),
+  /** Matriculation / CBSE: only subjects taught in this standard / class. */
+  grade: z.coerce.number().int().min(1).max(12).optional(),
+  category: z.string().trim().max(60).optional(),
 });
-export const catalogueAdd = z.object({
-  code: z.string().trim().regex(/^[0-9]{4}$/, 'Use the 4-digit Cambridge code'),
-  subjectId: uuid,
-  gradeLevels: gradeLevels.refine((g) => g.length <= 3 && g.every((x) => x >= 8 && x <= 10), 'IGCSE grades are 8–10'),
-  tiered: z.boolean().default(false),
-});
+/** Cambridge: by 4-digit code. Matriculation / CBSE: by catalogue row, for one or more of its grades. */
+export const catalogueAdd = z.union([
+  z.object({
+    code: z.string().trim().regex(/^[0-9]{4}$/, 'Use the 4-digit Cambridge code'),
+    subjectId: uuid,
+    gradeLevels: gradeLevels.refine((g) => g.length <= 3 && g.every((x) => x >= 8 && x <= 10), 'IGCSE grades are 8–10'),
+    tiered: z.boolean().default(false),
+  }),
+  z.object({
+    board: z.enum(CATALOGUE_BOARDS, 'Choose Matriculation, CBSE or ICSE'),
+    catalogueId: uuid,
+    /** General category of the school subject (Languages, Mathematics …). */
+    category: z.enum(SUBJECT_CATEGORIES, 'Choose a subject category'),
+    /** An existing school subject; when left out, the subject with the catalogue name is reused or created. */
+    subjectId: optUuid,
+    gradeLevels,
+  }),
+]);
 export const syllabusUpdate = z.object({
   subjectId: uuid.optional(),
   stage: text(40).optional(),

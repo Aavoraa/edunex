@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import json
 
-PROMPT_VERSION = "eval-v1"
+from . import boards
+
+PROMPT_VERSION = "eval-v3"  # v2: the board's marking conventions; v3: its syllabus and paper
 
 SYSTEM = """You are an experienced school examiner. You mark ONE student answer against the
 teacher's rubric and propose criterion-level marks. A teacher reviews every suggestion.
@@ -45,6 +47,11 @@ def build_user_message(*, exam: dict, question: dict, rubric: dict, answer_text:
     ]
     if exam.get("instructions"):
         parts.append(f"Examination instructions: {exam['instructions']}")
+    if boards.marking_guidance(exam.get("board")):
+        parts.append(f"Board: {boards.label(exam['board'])}. Board marking conventions (apply the rubric "
+                     f"this way; the rubric still decides what earns marks): {boards.marking_guidance(exam['board'])}")
+    if boards.syllabus_brief(exam):
+        parts.append(boards.syllabus_brief(exam))
     parts += [
         "",
         f"## Question {question['number']}  ({question['qtype']}, maximum {question['max_marks']} marks, "

@@ -143,7 +143,7 @@ from types import SimpleNamespace  # noqa: E402
 
 from app import ai_config  # noqa: E402
 from app.models import Student  # noqa: E402
-from app.providers.claude_vision import ClaudeReader, schema  # noqa: E402
+from app.providers.claude_vision import SheetReader, schema  # noqa: E402
 from app.services.processing import name_check  # noqa: E402
 
 
@@ -194,7 +194,7 @@ def test_reader_sends_all_pages_with_the_question_list_and_parses_answers():
                            {"question_number": "6", "text": "LinkedIn, Apollo", "pages": [2, 9], "uncertain": ["Apollo"]},
                            {"question_number": "6", "text": "Google", "pages": [2], "uncertain": []}]}
     seen = {}
-    r = ClaudeReader(_cfg(), client=_client(payload, seen)).read_sheet(
+    r = SheetReader(_cfg(), client=_client(payload, seen)).read_sheet(
         [_png(), _png()], [{"number": "1", "text": "what is lead generation"},
                            {"number": "6", "text": "tools used in lead generation"}])
     images = [c for c in seen["messages"][0]["content"] if c["type"] == "image"]
@@ -211,7 +211,7 @@ def test_reader_requires_acknowledgement():
     cfg = _cfg()
     cfg.values["external_processing_acknowledged"] = False
     with pytest.raises(Exception, match="acknowledge"):
-        ClaudeReader(cfg, client=object())
+        SheetReader(cfg, client=object())
 
 
 def test_schema_restricts_question_numbers():

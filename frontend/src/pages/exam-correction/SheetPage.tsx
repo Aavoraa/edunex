@@ -9,7 +9,7 @@ import {
 import { errorMessage } from '@/components/ui/states';
 import { cx, fmt } from '@/lib/format';
 import {
-  AiNotReady, BASE, EV, EvStatus, isBusy, marks, Connecting, NotConnected, ReasonModal, usePcStatus,
+  AiNotReady, BASE, EV, EvStatus, boardCrumb, isBusy, marks, Connecting, NotConnected, ReasonModal, useBoardOf, usePcStatus,
   type EvStudent, type Rubric, type SheetRow,
 } from './shared';
 
@@ -33,7 +33,7 @@ interface QRow {
 }
 interface PageText { page_no: number; text: string; warnings: string[]; uncertain: string[]; confidence: number | null }
 interface Sheet extends SheetRow {
-  exam: { id: string; name: string; subject: string; class_name: string; results_status: string };
+  exam: { id: string; name: string; subject: string; class_name: string; board?: string; results_status: string };
   student_full: { name: string; admission_no: string; class_name: string; section: string; roll_no: string };
   page_list: { id: string; page_no: number; quality: { warnings?: string[] } }[];
   active_extraction: { id: string; model: string | null; pages: PageText[]; warnings: string[]; redacted: boolean; name_on_sheet: string | null; unassigned_text: string; duration_ms: number } | null;
@@ -46,6 +46,7 @@ export default function SheetPage() {
   const st = usePcStatus();
   const toast = useToast();
   const invalidate = useInvalidate();
+  const boardOf = useBoardOf();
   const [poll, setPoll] = useState(false);
   const q = useApiQuery<Sheet>(st.data?.connected ? `${EV}/submissions/${id}` : null, undefined, { refetchInterval: poll ? 3000 : undefined });
   const s = q.data;
@@ -88,11 +89,11 @@ export default function SheetPage() {
   return (
     <Page>
       <PageHead title={s.student_full.name}
-        crumbs={[{ label: 'Paper Correction', to: BASE }, { label: s.exam.name, to: `${BASE}/exams/${s.exam.id}` }, { label: s.student_full.name }]}
+        crumbs={[boardCrumb(boardOf(s.exam)), { label: s.exam.name, to: `${BASE}/exams/${s.exam.id}` }, { label: s.student_full.name }]}
         sub={`Admission ${s.student_full.admission_no} · ${s.student_full.class_name}${s.student_full.section ? ` · Section ${s.student_full.section}` : ''} · Roll ${s.student_full.roll_no || '—'}`}
         actions={<div className="row g-4" style={{ alignItems: 'center' }}>
           {ai?.reading_available
-            ? <Button variant="primary" icon={ext ? 'refresh' : 'sparkle'} disabled={busy} loading={starting} onClick={() => start('process', {}, 'Claude is reading the sheet…')}>{ext ? 'Refresh' : 'Read & mark with Claude'}</Button>
+            ? <Button variant="primary" icon={ext ? 'refresh' : 'sparkle'} disabled={busy} loading={starting} onClick={() => start('process', {}, 'The AI is reading the sheet…')}>{ext ? 'Refresh' : `Read & mark with ${ai?.provider_label ?? 'AI'}`}</Button>
             : <span className="t-xs t-warning">Reading unavailable: {ai?.reading_reason}</span>}
           <div className="pc-total"><span className="pc-total__n">{marks(s.totals.total)} / {marks(s.totals.maximum)}</span>
             <span className="t-xs t-muted">{s.totals.approved ? 'all marks approved' : `${s.totals.marked}/${s.totals.questions} marked`}</span><EvStatus value={s.status} /></div>

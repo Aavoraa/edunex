@@ -115,7 +115,7 @@ def _store_submission(db: Session, exam: Exam, student: Student, files: list[tup
 
 def _maybe_start(db: Session, sub: Submission, user: User) -> tuple[Job | None, str]:
     """Auto-processing after upload: the sheet is stored either way."""
-    ok, why = ai_config.load(db).claude_vision_ready()
+    ok, why = ai_config.load(db).vision_ready()
     if not ok:
         return None, f"Stored, not read yet: {why}"
     job, _ = jobs.enqueue(db, "process", sub.id, user_id=user.id)
@@ -123,7 +123,7 @@ def _maybe_start(db: Session, sub: Submission, user: User) -> tuple[Job | None, 
 
 
 def _start(db: Session, sub: Submission, user: User, kind: str = "process") -> Job:
-    ok, why = ai_config.load(db).claude_vision_ready()
+    ok, why = ai_config.load(db).vision_ready()
     if not ok:
         raise HTTPException(400, why)
     job, _ = jobs.enqueue(db, kind, sub.id, user_id=user.id)
@@ -227,7 +227,7 @@ def get_submission(submission_id: str, user: StaffUser, db: DB) -> dict:
     return {
         **_sub_row(db, sub),
         "exam": {"id": exam.id, "name": exam.name, "subject": exam.subject, "class_name": exam.class_name,
-                 "results_status": exam.results_status},
+                 "board": exam.board, "results_status": exam.results_status},
         "student_full": {"name": st.name, "admission_no": st.admission_no, "class_name": st.class_name,
                          "section": st.section, "roll_no": st.roll_no},
         "page_list": [{"id": p.id, "page_no": p.page_no, "width": p.width, "height": p.height, "quality": p.quality}

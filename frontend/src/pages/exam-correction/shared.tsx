@@ -7,6 +7,8 @@ import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { Badge, Banner, Button, Card, Empty, Modal, TextArea } from '@/components/ui';
+import { useLookups } from '@/hooks/useLookups';
+import { boardInfo, isBoard, type Board } from '@/lib/grades';
 
 export const EV = '/exam-correction/api';
 export const BASE = '/paper-correction';
@@ -24,7 +26,7 @@ export interface PcStatus {
 }
 export interface AiStatus {
   reading_available: boolean; reading_reason: string; marking_available: boolean; marking_reason: string;
-  vision_model: string; eval_model: string;
+  provider?: string; provider_label?: string; vision_model: string; eval_model: string;
 }
 
 export interface Criterion { id: string; name: string; max_marks: number; description?: string }
@@ -39,11 +41,38 @@ export interface Question {
 }
 export interface Exam {
   id: string; name: string; academic_year: string; class_name: string; section: string; subject: string; grade_level: string;
+  /** The class's examination board (sets how the AI marks); '' on exams made before boards were recorded. */
+  board?: string; board_label?: string;
+  /** The board syllabus and paper it follows, with the paper's tier (IGCSE Core / Extended). */
+  syllabus_id?: string; syllabus_title?: string; component_id?: string; component_name?: string; tier?: string; syllabus_context?: string;
   instructions: string; results_status: 'draft' | 'reviewed' | 'approved' | 'published'; maximum: number; question_count: number;
   teachers: { id: string; name: string }[];
   counts: { submissions: number; processing: number; pending_review: number; approved: number; failed: number };
   questions?: Question[];
 }
+/** A class as Paper Correction names it: "Grade 7A · GDV" (class and campus code), matching the synced roster. */
+export function useClassLabel() {
+  const { lookups } = useLookups();
+  return (c: { name: string; campusId: string }) => `${c.name} · ${lookups?.campuses.find((x) => x.id === c.campusId)?.code.toUpperCase() ?? ''}`;
+}
+
+/** An exam's board: its own, or for older exams its class's board (classes default to Cambridge IGCSE). */
+export function useBoardOf() {
+  const { lookups } = useLookups();
+  const label = useClassLabel();
+  return (e: Pick<Exam, 'board' | 'class_name'>): Board => {
+    if (isBoard(e.board)) return e.board;
+    const cls = lookups?.classes.find((c) => label(c) === e.class_name);
+    return isBoard(cls?.board) ? cls.board : 'igcse';
+  };
+}
+
+/** The way back from an exam, sheet or setting: its board's Paper Correction (there is no all-boards menu entry). */
+export function boardCrumb(board: Board) {
+  const b = boardInfo(board);
+  return { label: `${b.menu} Paper Correction`, to: b.routes.paperCorrection };
+}
+
 export interface Job { id: string; kind: string; status: string; progress: string; error: string | null }
 export interface Totals { total: number; maximum: number; marked: number; questions: number; approved: boolean }
 export interface SheetRow {
@@ -73,7 +102,7 @@ export function EvStatus({ value }: { value?: string | null }) {
 
 export const isBusy = (job: Job | null | undefined) => !!job && (job.status === 'queued' || job.status === 'running');
 
-/** Service status: connection, the caller's role and Claude readiness. Re-checks every 10 s while the service starts up. */
+/** Service status: connection, the caller's role and AI readiness. Re-checks every 10 s while the service starts up. */
 export function usePcStatus() {
   return useQuery<PcStatus>({
     queryKey: ['/exam-correction/status', {}],
@@ -113,7 +142,7 @@ export function NotConnected({ status, onRetry }: { status?: PcStatus; onRetry?:
 
 export function AiNotReady({ ai }: { ai?: AiStatus }) {
   if (!ai || ai.reading_available) return null;
-  return <Banner tone="warning" icon="alert">Answer sheets can be uploaded, but Claude cannot read them yet: {ai.reading_reason}</Banner>;
+  return <Banner tone="warning" icon="alert">Answer sheets can be uploaded, but the AI cannot read them yet: {ai.reading_reason}</Banner>;
 }
 
 /** A small "why?" dialog for actions that need a reason on record. */

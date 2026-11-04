@@ -65,13 +65,13 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    section: 'Student Management', group: 'Student Management', hue: 'brand', label: 'Students', quick: [{ to: '/students' }, { to: '/attendance' }], icon: 'users', items: [
+    section: 'Student Management', group: 'Student Management', hue: 'brand', label: 'Students', icon: 'users', items: [
       // The student register; each row opens that student's 360 profile (/student-360/:id).
       { label: 'Student 360', icon: 'users', to: '/students', also: ['/student-360'], perm: STAFF_STUDENTS },
       { label: 'Student Tracking', icon: 'mapPin', to: '/student-tracking', perm: STAFF_TRACK },
       { label: 'Attendance', icon: 'checkSquare', to: '/attendance', perm: ['attendance.read'] },
       { label: 'Academic Performance', icon: 'trending', to: '/academic-performance', perm: STAFF_STUDENTS },
-      { label: 'Assessments', icon: 'clipboard', to: '/assessments', perm: ['academics.read'] },
+      { label: 'Assessments', icon: 'clipboard', to: '/assessments', perm: ['academics.read'] }, // opens the Assessments tab of Subjects & Assessments
       { label: 'Behaviour & Wellbeing', icon: 'heart', to: '/wellbeing', perm: STAFF_STUDENTS },
       { label: 'Student Portfolio', icon: 'folder', to: '/portfolio', perm: STAFF_STUDENTS },
       { label: 'Talent Discovery', icon: 'sparkle', to: '/talent', perm: [...STAFF_STUDENTS, 'ai.use'] },
@@ -79,7 +79,7 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    section: 'Admissions', group: 'Admissions & CRM', hue: 'blue', label: 'Enquiries & Admissions', quick: [{ to: '/pipeline', label: 'Counselling' }, { to: '/applications' }], icon: 'target', items: [
+    section: 'Admissions', group: 'Admissions & CRM', hue: 'blue', label: 'Enquiries & Admissions', icon: 'target', items: [
       { label: 'Admissions Dashboard', icon: 'target', to: '/admissions', perm: ['admissions.read'] },
       { label: 'Leads', icon: 'list', to: '/leads', perm: ['admissions.read'] },
       { label: 'Enquiries', icon: 'message', to: '/enquiries', perm: ['admissions.read'] },
@@ -93,30 +93,45 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    section: 'Student Management', group: 'Academics', hue: 'plum', quick: [{ to: '/report-cards' }], icon: 'book', items: [
+    section: 'Student Management', group: 'Academics', hue: 'plum', icon: 'book', items: [
       { label: 'Curriculum', icon: 'bookOpen', to: '/curriculum', perm: ['academics.read'] },
       { label: 'Classes', icon: 'grid', to: '/classes', perm: ['academics.read'] },
-      { label: 'Subjects', icon: 'book', to: '/subjects', perm: ['academics.read'] },
+      { label: 'Subjects & Assessments', icon: 'book', to: '/subjects', perm: ['academics.read'] },
       { label: 'Timetable', icon: 'calendar', to: '/timetable', perm: ['academics.read'] },
       { label: 'Lesson Plans', icon: 'clipboard', to: '/lesson-plans', perm: ['academics.read'] },
       { label: 'Homework', icon: 'edit', to: '/homework', perm: ['academics.read'] },
-      { label: 'Question Bank', icon: 'helpCircle', to: '/question-bank', perm: ['academics.read'] },
-      { label: 'Assessments', icon: 'checkSquare', to: '/assessments', perm: ['academics.read'] },
-      { label: 'Paper Correction', icon: 'scan', to: '/paper-correction', perm: ['assessments.manage'] },
       { label: 'Report Cards', icon: 'fileText', to: '/report-cards', perm: ['academics.read'] },
-      // Board sub-divisions: each board's own process (syllabus, grading, assessments).
+      // Board sub-divisions, international (IGCSE, IB) → national (CBSE, ICSE, NIOS) → state (Tamil Nadu Matriculation).
       { label: 'Cambridge Objectives', icon: 'target', to: '/objectives', perm: ['academics.read'], sub: 'Cambridge IGCSE' },
       { label: 'IGCSE Syllabus', icon: 'graduation', to: '/syllabus', perm: ['academics.read'], sub: 'Cambridge IGCSE' },
       { label: 'IGCSE Grading', icon: 'award', to: '/grading', perm: ['academics.read'], sub: 'Cambridge IGCSE' },
       { label: 'IGCSE Assessments', icon: 'checkSquare', to: '/igcse-assessments', perm: ['academics.read'], sub: 'Cambridge IGCSE' },
-      { label: 'Matric Learning Outcomes', icon: 'target', to: '/matric-outcomes', perm: ['academics.read'], sub: 'Tamil Nadu Matriculation' },
-      { label: 'Matric Syllabus', icon: 'bookOpen', to: '/matric-syllabus', perm: ['academics.read'], sub: 'Tamil Nadu Matriculation' },
-      { label: 'Matric Grading', icon: 'award', to: '/matriculation', perm: ['academics.read'], sub: 'Tamil Nadu Matriculation' },
-      { label: 'Matric Assessments', icon: 'checkSquare', to: '/matriculation-assessments', perm: ['academics.read'], sub: 'Tamil Nadu Matriculation' },
+      { label: 'IGCSE Paper Correction', icon: 'scan', to: '/igcse-paper-correction', perm: ['assessments.manage'], sub: 'Cambridge IGCSE' },
+      { label: 'IB Learning Outcomes', icon: 'target', to: '/ib-outcomes', perm: ['academics.read'], sub: 'IB Diploma Programme' },
+      { label: 'IB Syllabus', icon: 'bookOpen', to: '/ib-syllabus', perm: ['academics.read'], sub: 'IB Diploma Programme' },
+      { label: 'IB Grading', icon: 'award', to: '/ib', perm: ['academics.read'], sub: 'IB Diploma Programme' },
+      { label: 'IB Assessments', icon: 'checkSquare', to: '/ib-assessments', perm: ['academics.read'], sub: 'IB Diploma Programme' },
+      { label: 'IB Paper Correction', icon: 'scan', to: '/ib-paper-correction', perm: ['assessments.manage'], sub: 'IB Diploma Programme' },
       { label: 'CBSE Learning Outcomes', icon: 'target', to: '/cbse-outcomes', perm: ['academics.read'], sub: 'CBSE' },
       { label: 'CBSE Syllabus', icon: 'bookOpen', to: '/cbse-syllabus', perm: ['academics.read'], sub: 'CBSE' },
       { label: 'CBSE Grading', icon: 'award', to: '/cbse', perm: ['academics.read'], sub: 'CBSE' },
       { label: 'CBSE Assessments', icon: 'checkSquare', to: '/cbse-assessments', perm: ['academics.read'], sub: 'CBSE' },
+      { label: 'CBSE Paper Correction', icon: 'scan', to: '/cbse-paper-correction', perm: ['assessments.manage'], sub: 'CBSE' },
+      { label: 'ICSE Learning Outcomes', icon: 'target', to: '/icse-outcomes', perm: ['academics.read'], sub: 'ICSE' },
+      { label: 'ICSE Syllabus', icon: 'bookOpen', to: '/icse-syllabus', perm: ['academics.read'], sub: 'ICSE' },
+      { label: 'ICSE Grading', icon: 'award', to: '/icse', perm: ['academics.read'], sub: 'ICSE' },
+      { label: 'ICSE Assessments', icon: 'checkSquare', to: '/icse-assessments', perm: ['academics.read'], sub: 'ICSE' },
+      { label: 'ICSE Paper Correction', icon: 'scan', to: '/icse-paper-correction', perm: ['assessments.manage'], sub: 'ICSE' },
+      { label: 'NIOS Learning Outcomes', icon: 'target', to: '/nios-outcomes', perm: ['academics.read'], sub: 'NIOS' },
+      { label: 'NIOS Syllabus', icon: 'bookOpen', to: '/nios-syllabus', perm: ['academics.read'], sub: 'NIOS' },
+      { label: 'NIOS Grading', icon: 'award', to: '/nios', perm: ['academics.read'], sub: 'NIOS' },
+      { label: 'NIOS Assessments', icon: 'checkSquare', to: '/nios-assessments', perm: ['academics.read'], sub: 'NIOS' },
+      { label: 'NIOS Paper Correction', icon: 'scan', to: '/nios-paper-correction', perm: ['assessments.manage'], sub: 'NIOS' },
+      { label: 'Matric Learning Outcomes', icon: 'target', to: '/matric-outcomes', perm: ['academics.read'], sub: 'Tamil Nadu Matriculation' },
+      { label: 'Matric Syllabus', icon: 'bookOpen', to: '/matric-syllabus', perm: ['academics.read'], sub: 'Tamil Nadu Matriculation' },
+      { label: 'Matric Grading', icon: 'award', to: '/matriculation', perm: ['academics.read'], sub: 'Tamil Nadu Matriculation' },
+      { label: 'Matric Assessments', icon: 'checkSquare', to: '/matriculation-assessments', perm: ['academics.read'], sub: 'Tamil Nadu Matriculation' },
+      { label: 'Matric Paper Correction', icon: 'scan', to: '/matric-paper-correction', perm: ['assessments.manage'], sub: 'Tamil Nadu Matriculation' },
     ],
   },
   {
@@ -131,7 +146,7 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    section: 'Transport & Safety', group: 'Safety & Transport', hue: 'terracotta', label: 'GPS & Safety', quick: [{ to: '/student-tracking', label: 'GPS Tracking' }, { to: '/bus-tracking', label: 'Transport' }], icon: 'mapPin', items: [
+    section: 'Transport & Safety', group: 'Safety & Transport', hue: 'terracotta', label: 'GPS & Safety', icon: 'mapPin', items: [
       { label: 'Smart Gate', icon: 'door', to: '/smart-gate', perm: ['safety.read'] },
       { label: 'Gate Entry/Exit', icon: 'scan', to: '/gate-log', perm: ['safety.read'] },
       { label: 'Pickup Authorisation', icon: 'key', to: '/pickup', perm: ['safety.read'] },
@@ -149,7 +164,7 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    section: 'Finance', group: 'Finance', hue: 'sage', label: 'Fee Management', quick: [{ to: '/payments' }, { to: '/expenses' }, { to: '/financial-reports', label: 'Reports' }], icon: 'wallet', items: [
+    section: 'Finance', group: 'Finance', hue: 'sage', label: 'Fee Management', icon: 'wallet', items: [
       { label: 'Fee Structures', icon: 'layers', to: '/fee-structures', perm: ['finance.read'] },
       { label: 'Fee Collection', icon: 'wallet', to: '/fees', perm: ['finance.read'] },
       { label: 'Student Accounts', icon: 'user', to: '/student-accounts', perm: ['finance.read'] },
@@ -172,7 +187,7 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    section: 'HR & Workforce', group: 'Workforce', hue: 'amber', label: 'Staff', quick: [{ to: '/staff-attendance', label: 'Attendance' }, { to: '/leave' }, { to: '/payroll' }, { to: '/salary-dashboard' }], icon: 'users', items: [
+    section: 'HR & Workforce', group: 'Workforce', hue: 'amber', label: 'Staff', icon: 'users', items: [
       { label: 'Employee Directory', icon: 'users', to: '/workforce', perm: ['hr.read'] },
       { label: 'Teaching Staff', icon: 'graduation', to: '/teaching-staff', perm: ['hr.read'] },
       { label: 'Non-Teaching Staff', icon: 'tool', to: '/non-teaching-staff', perm: ['hr.read'] },

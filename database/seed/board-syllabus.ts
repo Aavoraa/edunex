@@ -12,12 +12,18 @@ export type CType = 'written' | 'practical' | 'coursework' | 'oral' | 'listening
 export type Comp = [string, string, number | null, number | null, number | null, CType];
 // [unit, code, title, subtopics, planned hours]
 export type Topic = [number, string, string, string, number];
-export interface BoardSyllabusDef { key: string; subject: string; grade: number; title: string; components: Comp[]; topics: Topic[] }
+export interface BoardSyllabusDef {
+  key: string; subject: string; grade: number; title: string; components: Comp[]; topics: Topic[];
+  /** All grades it is taught in, for a multi-year course (default: just `grade`). */
+  grades?: number[];
+  /** Its subject name in the board catalogue, when it differs from the school subject's. */
+  catalogueSubject?: string;
+}
 /** [code, outcome, subject, standard/class label, coverage %, mastery %] */
 export type Outcome = [string, string, string, string, number, number];
 
 export interface BoardSeed {
-  board: 'matriculation' | 'cbse';
+  board: 'matriculation' | 'cbse' | 'icse' | 'nios' | 'ib';
   stage: string;
   awardingBody: string;
   grading: string;
@@ -28,21 +34,31 @@ export interface BoardSeed {
   links: [string, string][];
 }
 
+/** School subject code → the subject's name in the board catalogues. */
+const CATALOGUE_SUBJECT: Record<string, string> = { MAT: 'Mathematics', SCI: 'Science', TAM: 'Tamil', ENG: 'English', SST: 'Social Science' };
+
 export async function seedBoardSyllabuses(db: Db, ctx: SeedContext, b: BoardSeed) {
   const subjects: Record<string, string> = {};
   for (const r of (await db.query('SELECT id, code FROM subjects')).rows) subjects[r.code] = r.id;
   const admin = ctx.users.principal ?? null;
 
   // ---- Syllabuses, papers, textbook units -----------------------------------------
-  const syl: { key: string; grade: number; subject: string; id: string; topics: string[] }[] = [];
+  const syl: { key: string; grades: number[]; subject: string; id: string; topics: string[] }[] = [];
   for (const d of b.defs) {
     if (!subjects[d.subject]) continue;
     const r = await db.query(
       `INSERT INTO syllabuses (board, subject_id, stage, awarding_body, syllabus_code, title, exam_series_years, tiered, grading, notes, is_active, created_by, grade_levels)
        VALUES ($1,$2,$3,$4,NULL,$5,NULL,false,$6,$7,true,$8,$9) RETURNING id`,
-      [b.board, subjects[d.subject], b.stage, b.awardingBody, d.title, b.grading, b.notes, admin, [d.grade]],
+      [b.board, subjects[d.subject], b.stage, b.awardingBody, d.title, b.grading, b.notes, admin, d.grades ?? [d.grade]],
     );
     const id = r.rows[0].id as string;
+    // Link it to the official catalogue entry for its subject and grade (migration 128), when there is one.
+    await db.query(
+      `UPDATE syllabuses SET board_catalogue_id = (
+         SELECT bc.id FROM board_catalogue bc WHERE bc.board = $2 AND bc.subject = $3 AND $4 = ANY (bc.grade_levels) ORDER BY bc.sort_order LIMIT 1)
+        WHERE id = $1`,
+      [id, b.board, d.catalogueSubject ?? CATALOGUE_SUBJECT[d.subject] ?? d.subject, d.grade],
+    );
     await bulkInsert(db, 'syllabus_components',
       ['syllabus_id', 'paper_no', 'name', 'tier', 'duration_minutes', 'max_marks', 'weighting_percent', 'assessment_type', 'notes', 'sort_order'],
       d.components.map(([paper, name, mins, max, w, type], i) => [id, paper, name, 'All', mins, max, w, type, 'School examination default — editable.', i + 1]));
@@ -50,7 +66,7 @@ export async function seedBoardSyllabuses(db: Db, ctx: SeedContext, b: BoardSeed
       ['syllabus_id', 'unit_no', 'code', 'title', 'subtopics', 'tier', 'planned_hours', 'planned_weeks', 'sort_order'],
       d.topics.map(([unit, code, title, subs, hours], i) => [id, unit, code, title, subs, 'All', hours, Math.round((hours / 4) * 2) / 2, i + 1]),
       'RETURNING id');
-    syl.push({ key: d.key, grade: d.grade, subject: d.subject, id, topics: topics.map((t) => t.id as string) });
+    syl.push({ key: d.key, grades: d.grades ?? [d.grade], subject: d.subject, id, topics: topics.map((t) => t.id as string) });
   }
 
   // ---- Unit coverage for the board's sections ----------------------------------------
@@ -68,7 +84,7 @@ export async function seedBoardSyllabuses(db: Db, ctx: SeedContext, b: BoardSeed
   const daysIntoYear = Math.max(10, Math.round((Date.parse(ctx.today) - Date.parse(yearStart)) / 86400000));
   const coverage: unknown[][] = [];
   for (const sec of sections) {
-    for (const s of syl.filter((x) => x.grade === sec.grade_level)) {
+    for (const s of syl.filter((x) => x.grades.includes(sec.grade_level))) {
       const teacher = teachers[`${sec.id}:${subjects[s.subject]}`] ?? sec.class_teacher_id;
       // One-year course: about half the units are done by this point of the year.
       const done = Math.min(s.topics.length - 1, Math.round(s.topics.length * (0.35 + ctx.rand() * 0.25)));

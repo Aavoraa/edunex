@@ -5,7 +5,8 @@ import { useApiQuery } from '@/hooks/useApi';
 import { useListParams } from '@/hooks/useListParams';
 import { useLookups } from '@/hooks/useLookups';
 import { Badge, Button, Card, DataTable, ErrorState, FilterSelect, Grid, Kpi, Meter, Page, PageHead, SearchInput, Toolbar } from '@/components/ui';
-import { GradeDocs, StageBanner, SyllabusForm, gradesLabel, syllabusBase, type SyllabusBoard, type SyllabusRow } from './shared';
+import { BoardDocs, GradeDocs, StageBanner, SyllabusForm, gradesLabel, syllabusBase, type SyllabusBoard, type SyllabusRow } from './shared';
+import { BoardCatalogueModal } from './BoardCatalogueModal';
 import { CatalogueModal } from './CatalogueModal';
 import { boardInfo } from '@/lib/grades';
 
@@ -49,7 +50,7 @@ export default function SyllabusPage({ board = 'igcse' }: { board?: SyllabusBoar
           : 'Cambridge IGCSE syllabuses for Grades 9–10 — papers and weightings, topic coverage by section, and students’ Core or Extended entries.'}
         actions={<>
           <Button icon="award" to={info.routes.grading}>{matric ? `${info.menu} grading` : 'Grading scheme'}</Button>
-          {!matric && <Button icon="bookOpen" onClick={() => setCatalogue(true)}>Cambridge catalogue</Button>}
+          <Button icon="bookOpen" onClick={() => setCatalogue(true)}>{info.catalogue?.title ?? 'Cambridge catalogue'}</Button>
           {can('grading.manage') && <Button variant="primary" icon="plus" onClick={() => setAdding(true)}>Add syllabus</Button>}
         </>}
       />
@@ -97,7 +98,11 @@ export default function SyllabusPage({ board = 'igcse' }: { board?: SyllabusBoar
                   ),
                 },
                 ...(matric ? [
-                  { key: 'board', label: 'Awarding body', sortable: false, render: (r: SyllabusRow) => <span className="t-sm">{r.awardingBody}</span> },
+                  {
+                    key: 'docs', label: info.catalogue?.docs ?? 'Official documents', sortable: false, render: (r: SyllabusRow) => r.catalogue
+                      ? <BoardDocs compact board={board} byGrade={r.catalogue.byGrade} />
+                      : <span className="t-micro t-muted">Not linked to the catalogue</span>,
+                  },
                   { key: 'grading', label: 'Grading', sortable: false, render: () => <span className="t-sm t-muted">{info.range} (pass from D)</span> },
                 ] : [
                   {
@@ -127,7 +132,7 @@ export default function SyllabusPage({ board = 'igcse' }: { board?: SyllabusBoar
         </Card>
       </div>
       {adding && <SyllabusForm board={board} onClose={() => setAdding(false)} onSaved={(id) => navigate(`${base}/${id}`)} />}
-      {catalogue && <CatalogueModal onClose={() => setCatalogue(false)} />}
+      {catalogue && (board === 'igcse' ? <CatalogueModal onClose={() => setCatalogue(false)} /> : <BoardCatalogueModal board={board} onClose={() => setCatalogue(false)} />)}
     </Page>
   );
 }

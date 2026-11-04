@@ -46,11 +46,22 @@ r.get('/syllabuses', READ, validate(V.syllabusesQuery, 'query'),
   async (req: Request, res: Response) => ok(res, await svc.listSyllabuses(req.user!, v(req, 'query')), 'Syllabuses'));
 
 // Cambridge IGCSE catalogue: every Cambridge syllabus with the document that applies to each grade.
+// Matriculation (TN State Board textbooks) and CBSE (curriculum 2026-27) catalogues: ?board=matriculation|cbse.
 r.get('/syllabus-catalogue', READ, validate(V.catalogueQuery, 'query'),
-  async (req: Request, res: Response) => ok(res, await svc.listCatalogue(v(req, 'query')), 'Cambridge IGCSE catalogue'));
+  async (req: Request, res: Response) => {
+    const f = v<{ board: string; q?: string; grading?: 'A*-G' | '9-1' }>(req, 'query');
+    return f.board === 'igcse'
+      ? ok(res, await svc.listCatalogue(f), 'Cambridge IGCSE catalogue')
+      : ok(res, await svc.listBoardCatalogue(f as never), 'Board catalogue');
+  });
 
 r.post('/syllabus-catalogue/add', DEFINE, validate(V.catalogueAdd),
-  async (req: Request, res: Response) => created(res, await svc.addFromCatalogue(req, v(req)), 'Syllabus added from the Cambridge catalogue'));
+  async (req: Request, res: Response) => {
+    const b = v<Record<string, unknown>>(req);
+    return 'catalogueId' in b
+      ? created(res, await svc.addFromBoardCatalogue(req, b as never), 'Syllabus added from the catalogue')
+      : created(res, await svc.addFromCatalogue(req, b as never), 'Syllabus added from the Cambridge catalogue');
+  });
 
 r.get('/syllabuses/:id', READ, id,
   async (req: Request, res: Response) => ok(res, await svc.getSyllabus(req.user!, params<{ id: string }>(req).id), 'Syllabus'));

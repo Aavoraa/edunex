@@ -191,6 +191,12 @@ export async function seed(db: Db, ctx: SeedContext): Promise<void> {
     // Pollachi Grades 6–9 follow CBSE — graded A1–E.
     ['AS-3304', 'Periodic Test 1 — Mathematics', 9, null, 'MAT', 'test', -12, 40, 'Completed', 1, 'plc'],
     ['AS-3305', 'Periodic Test 1 — Science', 8, 'A', 'SCI', 'test', -9, 40, 'Completed', 1, 'plc'],
+    // Vadavalli Grades 1–5 follow ICSE — graded A+–E.
+    ['AS-3309', 'Unit Test — Decimals', 5, null, 'MAT', 'unit_test', -11, 40, 'Completed', 1, 'vdv'],
+    ['AS-3310', 'Unit Test — Simple Machines', 5, 'A', 'SCI', 'unit_test', -7, 30, 'Completed', 1, 'vdv'],
+    // Guduvanchery Grades 11–12 follow the IB Diploma Programme — graded 7 to 1.
+    ['AS-3313', 'Internal assessment draft — Mathematics: Analysis and Approaches', 11, null, 'MAT', 'project', -13, 20, 'Completed', 1],
+    ['AS-3314', 'Paper 1 practice — Physics', 12, 'A', 'PHY', 'test', -8, 50, 'Completed', 1],
   ];
   const marks: unknown[][] = [];
   for (const [code, name, grade, section, sub, type, off, max, status, share, campus = 'gdv'] of ASSESS) {

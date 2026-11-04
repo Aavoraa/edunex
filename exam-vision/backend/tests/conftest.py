@@ -24,7 +24,7 @@ class FakeReader:
     calls: list = []
 
     def __init__(self, cfg):
-        ok, why = cfg.claude_vision_ready()
+        ok, why = cfg.vision_ready()
         if not ok:
             raise ProviderError(why, "not_configured")
         self.model = "fake-claude-reader"
@@ -53,7 +53,7 @@ class FakeEvaluator:
     calls: list = []
 
     def __init__(self, cfg):
-        ok, why = cfg.claude_ready()
+        ok, why = cfg.ai_ready()
         if not ok:
             raise ProviderError(why, "not_configured")
         self.model = "claude-opus-5-5"

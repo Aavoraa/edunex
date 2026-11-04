@@ -23,6 +23,9 @@ import * as parentLog from './parent-log.js';
 import * as syllabus from './syllabus.js';
 import * as matriculation from './matriculation.js';
 import * as cbse from './cbse.js';
+import * as icse from './icse.js';
+import * as nios from './nios.js';
+import * as ib from './ib.js';
 import { attachStudentDocumentFiles } from './sample-files.js';
 
 const DOMAINS: [string, { seed: (db: pg.PoolClient, ctx: SeedContext) => Promise<void> }][] = [
@@ -42,6 +45,9 @@ const DOMAINS: [string, { seed: (db: pg.PoolClient, ctx: SeedContext) => Promise
   ['Cambridge IGCSE syllabus', syllabus],
   ['Matriculation syllabus and learning outcomes', matriculation],
   ['CBSE syllabus and learning outcomes', cbse],
+  ['ICSE syllabus and learning outcomes', icse],
+  ['NIOS syllabus and learning outcomes', nios],
+  ['IB syllabus and learning outcomes', ib],
 ];
 
 export function createContext(now = new Date()): SeedContext {

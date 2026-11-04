@@ -39,7 +39,7 @@ export const DAY_IN_LIFE: DayStep[] = [
   { time: '10:20', title: 'Classroom activity and learning evidence', role: 'Teacher', icon: 'bookOpen', route: '/copilot',
     body: 'The fractions lesson drafted with the AI Co-Pilot runs in R-204. The teacher edited two activities before approving it yesterday.',
     chain: ['Teacher intervention'] },
-  { time: '11:30', title: 'Assessment marks feed the profile', role: 'Academics', icon: 'clipboard', route: '/assessments',
+  { time: '11:30', title: 'Assessment marks feed the profile', role: 'Academics', icon: 'clipboard', route: '/subjects?tab=assessments',
     body: 'Science marks are entered for the class. Each score lands in the student profile and updates the learning-gap view.',
     chain: ['Assessment', 'Performance data', 'Learning gap'] },
   { time: '12:15', title: 'Parent communication', role: 'Parent', icon: 'message', route: '/parent-communication',

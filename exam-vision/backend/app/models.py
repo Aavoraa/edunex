@@ -79,6 +79,16 @@ class Exam(Base):
     section: Mapped[str] = mapped_column(String(10), default="")
     subject: Mapped[str] = mapped_column(String(60))
     grade_level: Mapped[str] = mapped_column(String(40), default="")
+    # The class's examination board (services/boards.py): sets how the AI marks; "" = not set.
+    board: Mapped[str] = mapped_column(String(20), default="")
+    # The board syllabus and paper (Edunex syllabus component) the exam follows, its tier (IGCSE Core /
+    # Extended) and a summary of the syllabus (paper, marks, units) taken when the exam was set up.
+    syllabus_id: Mapped[str] = mapped_column(String(36), default="")
+    syllabus_title: Mapped[str] = mapped_column(String(200), default="")
+    component_id: Mapped[str] = mapped_column(String(36), default="")
+    component_name: Mapped[str] = mapped_column(String(120), default="")
+    tier: Mapped[str] = mapped_column(String(20), default="")
+    syllabus_context: Mapped[str] = mapped_column(Text, default="")
     instructions: Mapped[str] = mapped_column(Text, default="")
     results_status: Mapped[str] = mapped_column(String(20), default="draft")  # draft|reviewed|approved|published
     created_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
