@@ -43,9 +43,10 @@ through `DATABASE_URL` (or `EXAM_DATABASE_URL` to use a different one).
 
 ## Scheduled work
 
-`vercel.json` runs `/api/internal/cron/notifications` every 10 minutes to send queued SMS,
-WhatsApp, e-mail and push notifications (the local server does this every minute). Vercel's Hobby
-plan only allows daily cron jobs: on Hobby, change the schedule to once a day or move to Pro.
+`vercel.json` runs `/api/internal/cron/notifications` once a day, at 03:00 UTC (08:30 IST), to send
+queued SMS, WhatsApp, e-mail and push notifications (the local server does this every minute).
+That is the most Vercel's Hobby plan allows. On Pro, set the schedule to `*/10 * * * *` (every
+10 minutes) so notifications go out promptly.
 
 ## Page refreshes
 

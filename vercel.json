@@ -41,7 +41,7 @@
   "crons": [
     {
       "path": "/api/internal/cron/notifications",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 3 * * *"
     }
   ]
 }
