@@ -1,0 +1,116 @@
+/* ==========================================================================
+   Monochrome look: black and white with one blue accent, on a light grey frame.
+   Loaded last (main.tsx) so it restyles the app without touching the other
+   stylesheets; remove its import to go back to the indigo look.
+   ========================================================================== */
+
+:root:not([data-theme="dark"]) {
+  --brand: #18181B;          --brand-hover: #27272A;     --brand-strong: #09090B;
+  --brand-tint: #F4F4F5;     --brand-tint-2: #E4E4E7;    --brand-line: #E4E4E7;   --brand-ring: rgba(24, 24, 27, .18);
+  --accent: #3B82F6;         --accent-strong: #1D4ED8;   --accent-tint: #EFF6FF;  --accent-line: #BFDBFE;
+  --gold-deep-fill: #3B82F6;
+
+  --bg: #EDEDEE;             --bg-sunken: #F1F1F2;       --surface-alt: #FAFAFA;
+  --text: #3F3F46;           --text-strong: #18181B;     --text-muted: #71717A;   --text-faint: #71717A;
+  --border: #E4E4E7;         --border-strong: #D4D4D8;   --border-soft: #F4F4F5;  --card-border: #E4E4E7;
+
+  --sidebar-bg: transparent; --sidebar-border: transparent;
+  --sidebar-text: #3F3F46;   --sidebar-text-strong: #18181B; --sidebar-muted: #71717A;
+  --sidebar-hover: rgba(24, 24, 27, .06);
+  --sidebar-active-bg: linear-gradient(180deg, #3F3F46 0%, #18181B 100%);
+  --sidebar-active-text: #FFFFFF;
+  --topbar-bg: transparent;  --topbar-border: transparent;
+
+  --info: #3B82F6;    --info-tint: #EFF6FF;    --info-line: #BFDBFE;    --info-text: #1D4ED8;
+  --success: #16A34A; --success-tint: #F0FDF4; --success-line: #BBF7D0; --success-text: #15803D;
+  --viz-1: #18181B; --viz-2: #3B82F6; --viz-3: #A1A1AA; --viz-4: #52525B; --viz-5: #60A5FA; --viz-7: #71717A;
+  --viz-grid: #F1F1F3;
+
+  --hue-brand: #18181B; --hue-blue: #18181B; --hue-plum: #18181B; --hue-sage: #18181B; --hue-amber: #18181B;
+  --hue-teal: #18181B;  --hue-indigo: #18181B; --hue-rose: #18181B; --hue-terracotta: #18181B; --hue-steel: #18181B;
+  --hue-brand-tint: #F4F4F5; --hue-blue-tint: #F4F4F5; --hue-plum-tint: #F4F4F5; --hue-sage-tint: #F4F4F5; --hue-amber-tint: #F4F4F5;
+  --hue-teal-tint: #F4F4F5;  --hue-indigo-tint: #F4F4F5; --hue-rose-tint: #F4F4F5; --hue-terracotta-tint: #F4F4F5; --hue-steel-tint: #F4F4F5;
+}
+
+/* ---- Frame: light grey around everything, the page on a large white panel --------------------- */
+:root:not([data-theme="dark"]) body,
+:root:not([data-theme="dark"]) .app { background: linear-gradient(135deg, #F3F3F4 0%, #E9E9EB 55%, #E4E4E6 100%); }
+:root:not([data-theme="dark"]) .main { background: transparent; }
+:root:not([data-theme="dark"]) .topbar { background: transparent; border-bottom: 0; }
+:root:not([data-theme="dark"]) .view {
+  background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 22px; margin: 0 18px 18px 8px;
+  min-height: calc(100vh - var(--topbar-h) - 18px); box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+}
+:root:not([data-theme="dark"]) .globalsearch__input { background: #FFFFFF; border: 1px solid #E4E4E7; }
+
+/* ---- Sidebar: light, dark text, a black pill for the current page ---------------------------- */
+:root:not([data-theme="dark"]) .sidebar { background: transparent; color: var(--sidebar-text); }
+:root:not([data-theme="dark"]) .sidebar__brand, :root:not([data-theme="dark"]) .sidebar__logo,
+:root:not([data-theme="dark"]) .sidebar__name { color: #18181B; }
+:root:not([data-theme="dark"]) .sidebar__tag { color: #71717A; }
+:root:not([data-theme="dark"]) .sidebar__mark { box-shadow: 0 2px 6px rgba(0, 0, 0, .12); }
+:root:not([data-theme="dark"]) .sidebar__deco { display: none; }
+:root:not([data-theme="dark"]) .sidebar__railbtn, :root:not([data-theme="dark"]) .sidebar__logout {
+  background: #FFFFFF !important; color: #3F3F46 !important; box-shadow: 0 0 0 1px #E4E4E7;
+}
+:root:not([data-theme="dark"]) .sidebar__railbtn:hover, :root:not([data-theme="dark"]) .sidebar__logout:hover { background: #F4F4F5 !important; color: #18181B !important; }
+:root:not([data-theme="dark"]) .navsection { color: #71717A; opacity: 1; }
+:root:not([data-theme="dark"]) .sidebar .navhead, :root:not([data-theme="dark"]) .sidebar .navitem { color: #3F3F46; }
+:root:not([data-theme="dark"]) .sidebar .navhead__ico, :root:not([data-theme="dark"]) .sidebar .navitem__ico { color: #52525B; }
+:root:not([data-theme="dark"]) .sidebar .navhead:hover, :root:not([data-theme="dark"]) .sidebar .navitem:not([aria-current="page"]):hover { background: rgba(24, 24, 27, .06); color: #18181B; }
+:root:not([data-theme="dark"]) .sidebar .navhead:hover .navhead__ico, :root:not([data-theme="dark"]) .sidebar .navitem:not([aria-current="page"]):hover .navitem__ico { color: #18181B; }
+:root:not([data-theme="dark"]) .navgroup[data-open="true"] > .navhead, :root:not([data-theme="dark"]) .navgroup[data-current="true"] > .navhead,
+:root:not([data-theme="dark"]) .navgroup[data-open="true"] > .navhead .navhead__ico, :root:not([data-theme="dark"]) .navgroup[data-current="true"] > .navhead .navhead__ico { color: #18181B; }
+:root:not([data-theme="dark"]) .navhead__chev { color: #A1A1AA; }
+:root:not([data-theme="dark"]) .sidebar .navgroup:not(.navgroup--pinned) .navgroup__items { border-left-color: #E4E4E7; }
+:root:not([data-theme="dark"]) .sidebar .navgroup:not(.navgroup--pinned) .navgroup__items .navitem { color: #52525B; }
+:root:not([data-theme="dark"]) .sidebar .navitem[aria-current="page"],
+:root:not([data-theme="dark"]) .sidebar .navgroup:not(.navgroup--pinned) .navgroup__items .navitem[aria-current="page"],
+:root:not([data-theme="dark"]) .sidebar .navitem[aria-current="page"]:hover {
+  background: var(--sidebar-active-bg); color: #FFFFFF; box-shadow: 0 4px 10px -4px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .12); filter: none;
+}
+:root:not([data-theme="dark"]) .sidebar .navitem[aria-current="page"] .navitem__ico,
+:root:not([data-theme="dark"]) .sidebar .navitem[aria-current="page"]:hover .navitem__ico { color: #FFFFFF; }
+:root:not([data-theme="dark"]) .app[data-rail="true"] .navgroup[data-current="true"] > .navhead,
+:root:not([data-theme="dark"]) .app[data-rail="true"] .navgroup[data-current="true"] > .navhead .navhead__ico { background: var(--sidebar-active-bg); color: #FFFFFF; }
+:root:not([data-theme="dark"]) .sidebar__foot { border-top-color: #E4E4E7; }
+:root:not([data-theme="dark"]) .sidebar .navitem__count { box-shadow: none; }
+
+/* ---- Cards: plain white, thin border, no colour washes ----------------------------------------- */
+:root:not([data-theme="dark"]) :is(.card, .metric, .kpi, .ov-box, .oi-ov-section, .ov-tile--kpi, .statgrid--card, .promocard, .oi-ov-welcome) {
+  background: #FFFFFF; border: 1px solid #E4E4E7; box-shadow: none;
+}
+:root:not([data-theme="dark"]) .metric[data-tone] { --m-tone: #18181B; --m-tint: #F4F4F5; }
+:root:not([data-theme="dark"]) .metric::after, :root:not([data-theme="dark"]) .metric__deco { display: none; }
+:root:not([data-theme="dark"]) .card__ico, :root:not([data-theme="dark"]) .dash .card .card__ico { background: #F4F4F5; color: #18181B; }
+:root:not([data-theme="dark"]) .btn--primary { background: linear-gradient(180deg, #3F3F46, #18181B); border-color: #18181B; color: #FFFFFF; box-shadow: 0 4px 10px -6px rgba(0, 0, 0, .5); }
+:root:not([data-theme="dark"]) .btn--primary:hover:not(:disabled) { background: #09090B; }
+:root:not([data-theme="dark"]) a.cardlink, :root:not([data-theme="dark"]) .cardlink { color: #18181B; }
+
+/* ---- Welcome banner: white, black text, a black main button ---------------------------------------- */
+:root:not([data-theme="dark"]) .campusbanner.campusbanner--plain,
+:root:not([data-theme="dark"]) .campusbanner--welcome.campusbanner--plain { background: #FFFFFF; border: 1px solid #E4E4E7; box-shadow: none; }
+:root:not([data-theme="dark"]) .campusbanner--plain .campusbanner__title,
+:root:not([data-theme="dark"]) .campusbanner--welcome.campusbanner--plain .campusbanner__title { color: #18181B; font-family: var(--font-ui); font-weight: 700; letter-spacing: -.01em; font-size: 27px; white-space: nowrap; }
+:root:not([data-theme="dark"]) .campusbanner--plain .campusbanner__text { flex: 0 0 auto; max-width: none; padding-right: 12px; }
+:root:not([data-theme="dark"]) .campusbanner--plain .campusbanner__actions { flex-wrap: nowrap; }
+:root:not([data-theme="dark"]) .campusbanner--plain .campusbanner__name { color: #18181B; }
+:root:not([data-theme="dark"]) .campusbanner--plain .campusbanner__sub { color: #71717A; }
+:root:not([data-theme="dark"]) .campusbanner--plain .campusbanner__actions .btn--ghost { background: #FFFFFF; border: 1px solid #D4D4D8; color: #18181B; }
+:root:not([data-theme="dark"]) .campusbanner--plain .campusbanner__actions .btn--ghost > svg:first-child { color: #52525B; }
+:root:not([data-theme="dark"]) .campusbanner--plain .campusbanner__actions .btn--ghost:hover:not(:disabled) { background: #F4F4F5; color: #18181B; border-color: #A1A1AA; }
+:root:not([data-theme="dark"]) .campusbanner--plain .campusbanner__today { background: #FAFAFA; border-color: #E4E4E7; }
+:root:not([data-theme="dark"]) .campusbanner--plain :is(.campusbanner__today-kicker, .nextevent__kicker) { color: #16A34A; }
+:root:not([data-theme="dark"]) .campusbanner--plain .campusbanner__today-date,
+:root:not([data-theme="dark"]) .campusbanner--plain .nextevent { color: #18181B; }
+:root:not([data-theme="dark"]) .campusbanner--plain .nextevent { border-top-color: #E4E4E7; }
+:root:not([data-theme="dark"]) .campusbanner--plain .nextevent__meta { color: #71717A; }
+:root:not([data-theme="dark"]) .campusbanner--plain .nextevent:hover .nextevent__title { color: #18181B; }
+
+@media (max-width: 1024px) {
+  :root:not([data-theme="dark"]) .view { margin: 0 10px 10px; border-radius: 16px; }
+  :root:not([data-theme="dark"]) .sidebar { background: #F4F4F5; }
+}
+
+/* ---- Notifications: plain icons, no colour coding ---- */
+:root:not([data-theme="dark"]) .nlist__ico[class*="nlist__ico--"] { background: #F4F4F5; color: #18181B; }

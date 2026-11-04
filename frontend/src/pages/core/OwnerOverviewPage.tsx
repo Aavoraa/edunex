@@ -7,7 +7,7 @@ import { useLookups } from '@/hooks/useLookups';
 import { useSchool } from '@/layouts/SchoolContext';
 import {
   AlertItem, Badge, Banner, Button, Card, Chart, charts, Empty, ErrorState, Grid, Icon, Kpi, Legend, Meter, Page, PageSkeleton,
-  Person, StudentLink, CampusBanner, DashLayout, DashRail, UpcomingEvents, SchoolPulse } from '@/components/ui';
+  Person, StudentLink, CampusBanner, DashLayout, DashRail, NextEvent, UpcomingEvents, SchoolPulse, useHeadcounts } from '@/components/ui';
 import { fmt, todayKey } from '@/lib/format';
 
 /**
@@ -194,9 +194,39 @@ export default function OwnerOverviewPage() {
   const greet = hour < 12 ? t('Good Morning') : hour < 17 ? 'Good Afternoon' : 'Good Evening';
   const scopeLabel = school.scope === 'group' ? 'All campuses' : school.campus?.name ?? 'your campus';
 
+  // The headline figures sit in a row inside the banner (the page has no separate metric row).
+  const hc = useHeadcounts();
+  const glance: { label: string; icon: string; to: string; value: string; delta?: number | null; unit?: string; note?: string | null }[] = [
+    { label: 'Total Students', icon: 'users', to: '/students', value: hc ? fmt.n(hc.students) : '—', delta: hc?.studentsDelta, unit: '%', note: hc?.since },
+    { label: 'Total Staff', icon: 'user', to: can('hr.read') ? '/workforce' : '/overview', value: hc ? fmt.n(hc.staff) : '—', delta: hc?.staffDelta, unit: '%', note: hc?.since },
+    { label: 'Attendance Rate', icon: 'calendar', to: '/attendance', value: hc?.attendance != null ? `${hc.attendance}%` : '—', delta: hc?.attendanceDelta, unit: ' pts', note: 'vs last week' },
+    { label: 'Students On Track', icon: 'trending', to: '/students?risk=On+Track', value: hc?.onTrackPct != null ? `${hc.onTrackPct}%` : '—',
+      note: hc ? `${fmt.n(hc.onTrack)} of ${fmt.n(hc.students)} students` : null },
+  ];
+
   const head = (
     <CampusBanner
+      middle={(
+        <div className="glance" aria-label="Today at a glance">
+          {glance.map((g) => (
+            <Link key={g.label} className="glance__tile" to={g.to}>
+              <span className="glance__ico"><Icon name={g.icon} size={18} /></span>
+              <span className="glance__body">
+                <span className="glance__label">{g.label}</span>
+                <strong className="glance__value">{g.value}</strong>
+                {g.delta != null ? (
+                  <span className={`glance__delta${g.delta < 0 ? ' glance__delta--down' : ''}`}>
+                    {g.delta < 0 ? '↓' : '↑'} {Math.abs(g.delta)}{g.unit}{g.note ? <span className="glance__since"> {g.note}</span> : null}
+                  </span>
+                ) : g.note ? <span className="glance__since">{g.note}</span> : null}
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
       welcome
+      plain
+      aside={<NextEvent />}
       title={<>{greet}, <span className="campusbanner__name">{user?.fullName}</span></>}
       sub={school.scope === 'group' ? "Here's what's happening across all campuses today." : <>Here's what's happening at {scopeLabel} today.</>}
       actions={(
@@ -209,18 +239,14 @@ export default function OwnerOverviewPage() {
   );
 
   // The dashboard top (metrics, charts, rail) loads its own data, in parallel with the overview below it.
+  // The welcome banner spans the full width; notifications and events start below it.
   const top = (
-    <DashLayout rail={<DashRail quote={false} notes={4} eventCount={1} actions={[
-      { label: 'Add New Student', icon: 'plus', to: '/students?new=1', show: can('students.create') },
-      { label: 'Users & Roles', icon: 'users', to: '/admin/users', show: can('users.manage') },
-      { label: 'Fee Collection', icon: 'wallet', to: '/fees', show: can('finance.read') },
-      { label: 'Audit Trail', icon: 'list', to: '/audit', show: can('audit.read') },
-      { label: 'Report Centre', icon: 'barChart', to: '/admin/reports', show: can('users.manage') },
-      { label: 'System Settings', icon: 'settings', to: '/admin/settings', show: can('settings.manage') },
-    ]} />}>
+    <>
       {head}
-      <SchoolPulse events={false} metrics promo />
-    </DashLayout>
+      <DashLayout rail={<DashRail quote={false} notes={3} eventCount={3} />}>
+        <SchoolPulse events={false} fees={false} />
+      </DashLayout>
+    </>
   );
 
   if (q.isLoading) return <Page>{top}<div className="mt-4"><PageSkeleton /></div></Page>;

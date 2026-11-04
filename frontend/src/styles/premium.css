@@ -230,3 +230,124 @@ a.metric:hover, button.metric:hover, .kpi--link:hover, .card--link:hover, a.ov-t
   .campusbanner--welcome .campusbanner__title { font-size: 27px; }
   .input, .select, .textarea { font-size: 16px; }
 }
+
+/* ---- Page turn: each new page lands like the leaf of a book, hinged on its left edge -------- */
+.pageturn {
+  position: relative; transform-origin: left center; overflow: clip; backface-visibility: hidden;
+  animation: pageturn .7s cubic-bezier(.22, .72, .18, 1) backwards;
+}
+.pageturn::after {
+  /* the leaf's shading: dark at the spine while it turns, gone once it lies flat */
+  content: ""; position: absolute; inset: 0; z-index: 50; pointer-events: none;
+  background: linear-gradient(90deg, rgba(30, 27, 75, .28) 0%, rgba(30, 27, 75, .08) 18%, transparent 45%, rgba(255, 255, 255, .25) 100%);
+  animation: pageturn-shade .7s ease-out forwards;
+}
+.pageturn--done { overflow: visible; animation: none; }
+.pageturn--done::after { display: none; }
+.pageturn .page { animation: none; }
+@keyframes pageturn {
+  0%   { transform: perspective(2200px) rotateY(-78deg); opacity: 0; box-shadow: -40px 0 60px -20px rgba(30, 27, 75, .45); }
+  25%  { opacity: 1; }
+  70%  { transform: perspective(2200px) rotateY(4deg); box-shadow: -18px 0 40px -24px rgba(30, 27, 75, .3); }
+  100% { transform: perspective(2200px) rotateY(0); box-shadow: none; }
+}
+@keyframes pageturn-shade { 0% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .pageturn, .pageturn::after { animation: none; }
+}
+
+/* ---- Spiral binding: silver coils joining the menu and the page, like a notebook ------------ */
+.spiral {
+  position: fixed; top: 0; bottom: 0; left: calc(var(--sidebar-w) - 18px); width: 36px; z-index: calc(var(--z-nav) + 1);
+  pointer-events: none; transition: left var(--t-base);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='26' viewBox='0 0 36 26'%3E%3Cdefs%3E%3ClinearGradient id='m' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23FFFFFF'/%3E%3Cstop offset='.35' stop-color='%23D7DBE8'/%3E%3Cstop offset='.7' stop-color='%239097AE'/%3E%3Cstop offset='1' stop-color='%235B6178'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='7' cy='15' r='3.4' fill='%230B0A24'/%3E%3Ccircle cx='29' cy='15' r='3.4' fill='%23CDD1E3'/%3E%3Ccircle cx='29' cy='15.6' r='2.6' fill='%23A9AEC6'/%3E%3Cpath d='M7.5 16.5 C 9.5 6.5, 26.5 6.5, 28.5 16.5' fill='none' stroke='%230B0A24' stroke-opacity='.35' stroke-width='3.4' stroke-linecap='round' transform='translate(0 1.4)'/%3E%3Cpath d='M7.5 16.5 C 9.5 6.5, 26.5 6.5, 28.5 16.5' fill='none' stroke='url(%23m)' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M10.5 11.2 C 14 8.4, 22 8.4, 25.5 11.2' fill='none' stroke='%23FFFFFF' stroke-opacity='.75' stroke-width='.8' stroke-linecap='round'/%3E%3C/svg%3E") center 6px / 36px 26px repeat-y;
+  filter: drop-shadow(0 1px 1px rgba(11, 10, 36, .25));
+}
+.app[data-rail="true"] .spiral { left: calc(var(--sidebar-w-collapsed) - 18px); }
+/* the page keeps clear of the coils' holes */
+.main { padding-left: 6px; }
+@media (max-width: 1024px) { .spiral { display: none; } .main { padding-left: 0; } }
+@media print { .spiral { display: none; } }
+
+/* ---- Plain welcome (Owner overview): white, no photo; today and the next event in a card ----- */
+.campusbanner.campusbanner--plain, :root:not([data-theme="dark"]) .campusbanner--welcome.campusbanner--plain {
+  background: var(--surface); border: 1px solid var(--card-border); box-shadow: var(--sh-1);
+}
+.campusbanner--plain.campusbanner--welcome, .campusbanner--plain.campusbanner--welcome .campusbanner__body { min-height: 176px; }
+.campusbanner--plain .campusbanner__body { justify-content: space-between; align-items: center; }
+.campusbanner--plain .campusbanner__title, .campusbanner--welcome.campusbanner--plain .campusbanner__title { font-size: 30px; color: var(--text-strong); }
+.campusbanner--plain .campusbanner__sub { font-size: 14px; }
+.campusbanner__today {
+  flex: 0 0 auto; display: flex; flex-direction: column; gap: 2px; min-width: 230px; max-width: 280px; padding: 14px 18px 15px;
+  border-radius: 14px; background: var(--brand-tint, #EEF0FF); border: 1px solid var(--brand-line, #DCE0F7);
+}
+.campusbanner__today-kicker, .nextevent__kicker {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--accent-strong);
+}
+.campusbanner__today-date { font-size: 16px; font-weight: 700; color: var(--text-strong); }
+.campusbanner__today-line {
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--brand-line, #DCE0F7);
+  font-family: var(--font-serif); font-style: italic; font-size: 13px; color: var(--text);
+}
+.nextevent {
+  display: flex; flex-direction: column; gap: 1px; margin-top: 8px; padding-top: 8px;
+  border-top: 1px solid var(--brand-line, #DCE0F7); color: var(--text-strong); text-decoration: none;
+}
+.nextevent__title { font-size: 14px; font-weight: 700; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.nextevent__meta { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nextevent:hover .nextevent__title { color: var(--brand); text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 767px) {
+  .campusbanner.campusbanner--plain { display: block; }
+  .campusbanner--plain .campusbanner__body { flex-direction: column; align-items: stretch; gap: 14px; }
+  .campusbanner--plain .campusbanner__today { max-width: none; }
+  .campusbanner--plain .campusbanner__title, .campusbanner--welcome.campusbanner--plain .campusbanner__title { font-size: 22px; }
+}
+
+/* ---- Loading: the ldrs infinity loop ---------------------------------------------------------- */
+.loader, .spinner { display: inline-flex; align-items: center; justify-content: center; line-height: 0; }
+.pageloader { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; min-height: 260px; padding: 24px; text-align: center; }
+.pageloader .t-sm { max-width: 46ch; }
+
+/* ---- Donut ring: dark disc, white figure -------------------------------------------------------- */
+.donut--ring { filter: drop-shadow(0 8px 16px rgba(30, 27, 75, .12)); }
+.donut--ring svg > circle:first-of-type { stroke: #E7E8F2; stroke-width: 1; }
+.donut--ring .donut__center strong, .dash .donut--ring .donut__center strong { color: var(--text-strong); font-family: var(--font-ui); font-weight: 600; letter-spacing: -.01em; }
+.donut--ring .donut__center { padding: 0 18%; }
+.donut--ring .donut__center span, .dash .donut--ring .donut__center span {
+  display: block; max-width: 84px; margin: 4px auto 0; color: var(--text-muted); font-size: 10px; line-height: 1.25; white-space: normal; overflow-wrap: anywhere;
+}
+
+/* ---- Plain banner: the date in the top-right corner; the card holds the next event ---- */
+.campusbanner--plain .campusbanner__corner-date {
+  position: absolute; z-index: 3; top: 14px; right: 22px; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 600; color: var(--text-muted);
+}
+.campusbanner--plain .campusbanner__body { padding-top: 34px; }
+.campusbanner__today > .nextevent:first-child, .campusbanner__today > .campusbanner__today-line:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+@media (max-width: 767px) { .campusbanner--plain .campusbanner__corner-date { position: static; margin: 14px 16px 0; } .campusbanner--plain .campusbanner__body { padding-top: 10px; } }
+
+/* ---- Owner overview: the plain welcome banner spans the page above the rail ---- */
+.page > .campusbanner--plain { margin: 0 0 16px; }
+.page:has(> .campusbanner--welcome) { padding-top: 12px; max-width: none; }
+
+/* ---- Headline figures: a full-width row of tiles inside the plain banner ---- */
+.campusbanner__stats { position: relative; z-index: 2; padding: 0 24px 20px 38px; }
+.glance { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.glance__tile {
+  display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: 14px; min-width: 0;
+  text-decoration: none; background: var(--surface-alt, #FAFAFA); border: 1px solid var(--border); color: var(--text-strong);
+  transition: border-color var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
+}
+.glance__tile:hover { border-color: var(--border-strong); transform: translateY(-1px); box-shadow: 0 6px 14px -10px rgba(0, 0, 0, .35); }
+.glance__ico { flex: none; width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: #FFFFFF; border: 1px solid var(--border); color: var(--text-strong); }
+.glance__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.glance__label { font-size: 12.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.glance__value { font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.glance__delta { font-size: 11.5px; font-weight: 600; color: var(--success-text, #15803D); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.glance__delta--down { color: var(--critical-text, #A3162B); }
+.glance__since { font-size: 11.5px; font-weight: 400; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 1100px) { .glance { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 767px) { .campusbanner__stats { padding: 0 16px 16px; } .glance__ico { display: none; } .glance__value { font-size: 22px; } }
+
+@media (max-width: 1240px) { .campusbanner--plain .campusbanner__title { white-space: normal !important; } }

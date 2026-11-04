@@ -3,7 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from '@/auth/AuthContext';
 import { AppShell, Protected } from '@/layouts/AppShell';
 import { SchoolContextProvider } from '@/layouts/SchoolContext';
-import { BrandArt, PageSkeleton } from '@/components/ui';
+import { PageLoader } from '@/components/ui';
 import { APP_ROUTES } from '@/pages/registry';
 import LoginPage from '@/pages/core/LoginPage';
 import NotFoundPage from '@/pages/core/NotFoundPage';
@@ -15,11 +15,8 @@ const VerifyCertificatePage = lazy(() => import('@/pages/core/VerifyCertificateP
 
 function Splash() {
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--bg)' }} aria-busy="true">
-      <div className="col center g-3">
-        <BrandArt className="splash__deco" />
-        <span className="t-sm t-muted">Opening Edunex Smart School 360…</span>
-      </div>
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--bg)' }}>
+      <PageLoader text="Opening Edunex Smart School 360…" />
     </div>
   );
 }
@@ -61,7 +58,7 @@ export default function App() {
             path={r.path}
             element={
               <Protected perm={r.perm}>
-                <Suspense fallback={<div className="page"><PageSkeleton /></div>}>{r.element}</Suspense>
+                <Suspense fallback={<div className="page"><PageLoader /></div>}>{r.element}</Suspense>
               </Protected>
             }
           />
