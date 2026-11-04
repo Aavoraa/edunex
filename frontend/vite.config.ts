@@ -19,10 +19,23 @@ function apiProxyTarget() {
   }
 }
 
+/**
+ * Static hosting (Vercel) has no file for app routes such as /overview: the copy of index.html as
+ * 404.html makes a refresh or a shared link open the app, which then shows the right page.
+ */
+const spaFallback = {
+  name: 'edunex-spa-fallback',
+  apply: 'build' as const,
+  closeBundle() {
+    const index = path.resolve(import.meta.dirname, 'dist', 'index.html');
+    if (fs.existsSync(index)) fs.copyFileSync(index, path.resolve(import.meta.dirname, 'dist', '404.html'));
+  },
+};
+
 export default defineConfig(() => {
   const proxyTarget = apiProxyTarget();
   return {
-    plugins: [react()],
+    plugins: [react(), spaFallback],
     resolve: { alias: { '@': path.resolve(import.meta.dirname, 'src') } },
     server: {
       port: 5173,

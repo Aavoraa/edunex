@@ -1,11 +1,13 @@
 # backend/app/db.py
-"""Engine, sessions and schema migrations (SQLite in the data folder)."""
+"""Engine, sessions and schema migrations: SQLite in the data folder, or PostgreSQL (its own schema)."""
 
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 
-from sqlalchemy import create_engine, event, text
+import re
+
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -33,8 +35,18 @@ def configure(s: Settings = settings) -> Engine:
     ensure_dirs(s)
     if _engine is not None:
         _engine.dispose()  # reconfiguring (tests): release the old pool's connections
-    _engine = create_engine(f"sqlite:///{s.db_path}", connect_args={"check_same_thread": False, "timeout": 30})
-    event.listen(_engine, "connect", _sqlite_pragmas)
+    if s.database_url:
+        schema = s.db_schema
+        if not re.fullmatch(r"[a-z_][a-z0-9_]{0,62}", schema):
+            raise ValueError("EXAM_DB_SCHEMA must be a plain lower-case name")
+        # Small pool: on Vercel each function instance keeps its own connections.
+        _engine = create_engine(s.database_url, pool_pre_ping=True, pool_size=2, max_overflow=2,
+                                connect_args={"options": f"-csearch_path={schema}"})
+        with _engine.begin() as conn:
+            conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema}"'))
+    else:
+        _engine = create_engine(f"sqlite:///{s.db_path}", connect_args={"check_same_thread": False, "timeout": 30})
+        event.listen(_engine, "connect", _sqlite_pragmas)
     _SessionLocal = sessionmaker(bind=_engine, expire_on_commit=False)
     migrate(_engine)
     return _engine
@@ -64,6 +76,10 @@ def get_db() -> Iterator[Session]:
 # Each entry upgrades the schema by one version. Never edit an applied migration:
 # append a new one. Version 1 creates every table from the models.
 
+def _columns(conn, table: str) -> set[str]:
+    return {c["name"] for c in inspect(conn).get_columns(table)}
+
+
 def _v1(conn) -> None:
     from . import models  # noqa: F401  (registers the tables)
 
@@ -72,8 +88,7 @@ def _v1(conn) -> None:
 
 def _v2(conn) -> None:
     # who wrote a rubric version: "teacher" or "ai_draft"
-    cols = [r[1] for r in conn.execute(text("PRAGMA table_info(rubric_versions)"))]
-    if "source" not in cols:
+    if "source" not in _columns(conn, "rubric_versions"):
         conn.execute(text("ALTER TABLE rubric_versions ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'teacher'"))
 
 
@@ -95,14 +110,13 @@ def _v4(conn) -> None:
 
 def _v5(conn) -> None:
     # the examination board an exam follows (IGCSE, CBSE, ...): its marking conventions
-    cols = [r[1] for r in conn.execute(text("PRAGMA table_info(exams)"))]
-    if "board" not in cols:
+    if "board" not in _columns(conn, "exams"):
         conn.execute(text("ALTER TABLE exams ADD COLUMN board VARCHAR(20) NOT NULL DEFAULT ''"))
 
 
 def _v6(conn) -> None:
     # the syllabus, paper and tier an exam follows, with a summary of the syllabus for the AI
-    cols = [r[1] for r in conn.execute(text("PRAGMA table_info(exams)"))]
+    cols = _columns(conn, "exams")
     for name, kind in (("syllabus_id", "VARCHAR(36)"), ("syllabus_title", "VARCHAR(200)"), ("component_id", "VARCHAR(36)"),
                        ("component_name", "VARCHAR(120)"), ("tier", "VARCHAR(20)"), ("syllabus_context", "TEXT")):
         if name not in cols:

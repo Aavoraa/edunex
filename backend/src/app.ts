@@ -11,6 +11,7 @@ import { errorHandler, notFoundHandler } from './middleware/error.js';
 import { apiLimiter, noStore, sanitizeBody } from './middleware/security.js';
 import { logger } from './utils/logger.js';
 import { pool } from './config/db.js';
+import { dispatchPending } from './services/notification.service.js';
 
 export function createApp() {
   const app = express();
@@ -67,6 +68,22 @@ export function createApp() {
       res.json({ success: true, data: { status: 'ok', database: 'up', time: new Date().toISOString() }, message: 'Healthy' });
     } catch {
       res.status(503).json({ success: false, message: 'Database unavailable', error: 'DB_DOWN' });
+    }
+  });
+
+  // Scheduled work on Vercel, where no process stays up for server.ts's timers: Vercel Cron
+  // (vercel.json "crons") calls this with "Authorization: Bearer <CRON_SECRET>".
+  app.get('/api/internal/cron/notifications', async (req, res, next) => {
+    const expected = Buffer.from(`Bearer ${env.CRON_SECRET ?? ''}`);
+    const given = Buffer.from(req.get('authorization') ?? '');
+    if (!env.CRON_SECRET || given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) {
+      res.status(401).json({ success: false, message: 'Unauthorized', error: 'UNAUTHORIZED' });
+      return;
+    }
+    try {
+      res.json({ success: true, data: { sent: await dispatchPending() }, message: 'Notifications dispatched' });
+    } catch (err) {
+      next(err);
     }
   });
 
