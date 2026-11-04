@@ -6,7 +6,7 @@
 import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import { Badge, Banner, Button, Card, Empty, Modal, TextArea } from '@/components/ui';
+import { Badge, Banner, Button, Card, Empty, Modal, PageLoader, TextArea } from '@/components/ui';
 import { useLookups } from '@/hooks/useLookups';
 import { boardInfo, isBoard, type Board } from '@/lib/grades';
 
@@ -116,8 +116,7 @@ export function usePcStatus() {
 export function Connecting() {
   return (
     <Card>
-      <Empty icon="clock" title="Connecting to Paper Correction…"
-        sub="If the marking service has been idle it takes up to a minute to start. This page continues by itself." />
+      <PageLoader text="Connecting to Paper Correction… If the marking service has been idle it takes up to a minute to start." />
     </Card>
   );
 }

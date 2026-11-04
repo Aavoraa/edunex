@@ -11,7 +11,7 @@
 :root:not([data-theme="dark"]) {
   --card-border: #E7E7EF;
   --sidebar-bg: linear-gradient(180deg, #25216A 0%, #1E1B4B 55%, #171540 100%);
-  --sidebar-active-bg: linear-gradient(90deg, #E0FDF9, #C8F5F0);
+  --sidebar-active-bg: #FFFFFF;
   --sidebar-active-text: #16184F;
 }
 

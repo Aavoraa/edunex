@@ -11,6 +11,8 @@ import { charts } from '@/lib/legacy-charts';
 import { cx, fmt } from '@/lib/format';
 import { BrandArt, BrandRule } from './BrandArt';
 import { riskTone, statusTone, toneFor, type Tone } from '@/lib/tones';
+import { Infinity as InfinityLoader } from 'ldrs/react';
+import 'ldrs/react/Infinity.css';
 
 // ---------------------------------------------------------------------------
 // Icons & brand
@@ -182,12 +184,12 @@ export function IconButton({ icon, label, onClick, to, count, className, size = 
   );
 }
 
+/** Small inline loading mark (buttons, inline states): the Edunex infinity loop in the text colour. */
 export function Spinner({ size = 16 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ animation: 'hs-spin .8s linear infinite' }}>
-      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2.5" strokeOpacity=".25" />
-      <path d="M21 12a9 9 0 0 0-9-9" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-    </svg>
+    <span className="spinner" aria-hidden="true">
+      <InfinityLoader size={Math.round(size * 1.7)} stroke={2} strokeLength="0.15" bgOpacity="0.15" speed="1.3" color="currentColor" />
+    </span>
   );
 }
 

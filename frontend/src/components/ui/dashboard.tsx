@@ -62,13 +62,14 @@ export function QuickActions({ items, title = 'Quick Actions' }: { items: QuickA
 
 /** Standard right rail: role-specific quick actions, the school's line, notifications and upcoming events. */
 export function DashRail({ actions, events = true, quote = true, notes = 5, eventCount = 4, children }: {
-  actions: QuickAction[]; events?: boolean; quote?: boolean;
+  /** Quick Actions card; leave out (or empty) for none. */
+  actions?: QuickAction[]; events?: boolean; quote?: boolean;
   /** How many notifications and events to list. */
   notes?: number; eventCount?: number; children?: ReactNode;
 }) {
   return (
     <>
-      <QuickActions items={actions} />
+      {actions?.length ? <QuickActions items={actions} /> : null}
       {children}
       {quote && <QuoteCard />}
       <RecentNotifications limit={notes} />
@@ -119,6 +120,26 @@ const fmtTime = (t: string) => {
 const EVENT_TAG: Record<string, string> ={ Academic: 'academic', PTM: 'academic', Sports: 'sports', School: 'event', Cultural: 'event', Holiday: 'finance' };
 
 /** Next school events: the staff calendar, or the family calendar for parents. Renders nothing for roles without either. */
+/**
+ * The next event on the school calendar in one line, for the frosted card on the welcome banner:
+ * "Fri 7 Nov · Parent–Teacher Meeting", then its time and venue. Nothing while loading or when none is coming up.
+ */
+export function NextEvent() {
+  const { can } = useAuth();
+  const { campusParam } = useSchool();
+  const q = usePagedQuery<SchoolEvent>(can('communication.read') ? '/events' : null, { when: 'upcoming', pageSize: 1, ...campusParam });
+  const e = q.data?.rows[0];
+  if (!e) return null;
+  const day = new Date(e.startsOn).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+  return (
+    <Link className="nextevent" to="/events" title="Open the school calendar">
+      <span className="nextevent__kicker"><Icon name="calendar" size={12} />Next up · {day}</span>
+      <span className="nextevent__title">{e.title}</span>
+      <span className="nextevent__meta">{e.startsAt ? fmtTime(e.startsAt) : 'All day'}{e.venue ? ` · ${e.venue}` : ''}</span>
+    </Link>
+  );
+}
+
 export function UpcomingEvents({ limit = 4 }: { limit?: number }) {
   const { can } = useAuth();
   const { campusParam } = useSchool();

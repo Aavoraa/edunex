@@ -173,13 +173,43 @@ const change = (now: number, before: number | undefined) => (before ? Math.round
 const avg = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : null);
 
 /**
+ * The dashboard's headline figures: student and staff headcounts with their change since about a
+ * term ago (three month-ends back), today's attendance with its change on the week, and the share of
+ * students on track. Same figures as the metric cards; null while loading or for roles without access.
+ */
+export function useHeadcounts() {
+  const { can } = useAuth();
+  const school = useSchool();
+  const allowed = can('dashboard.view') && can('students.read');
+  const q = useApiQuery<Pulse>(allowed ? '/dashboard/command-center' : null, { scope: school.scope, campusId: school.campusId });
+  const d = q.data;
+  if (!d) return null;
+  const h = d.history;
+  const growth = (xs?: number[]) => (xs && xs.length > 3 ? change(xs[xs.length - 1], xs[xs.length - 4]) : null);
+  const trendVals = d.attendance.trend.map((t) => t.value);
+  const recent = avg(trendVals.slice(-5)), earlier = avg(trendVals.slice(-10, -5));
+  return {
+    students: d.students.total, staff: d.staff.total,
+    studentsDelta: growth(h?.students), staffDelta: growth(h?.staff),
+    since: h && h.months.length > 3 ? `vs ${h.months[h.months.length - 4]}` : null,
+    attendance: d.attendance.todayPct ?? trendVals[trendVals.length - 1] ?? null,
+    attendanceDelta: recent != null && earlier != null ? Math.round((recent - earlier) * 10) / 10 : null,
+    onTrack: d.students.onTrack, onTrackPct: d.students.total ? Math.round((d.students.onTrack / d.students.total) * 100) : null,
+  };
+}
+
+/**
  * The dashboard picture for any role that may read school-wide figures
  * (dashboard.view + students.read): headline metrics (optional), attendance,
  * performance, events and top performers. Renders nothing for other roles.
  */
-export function SchoolPulse({ events = true, metrics = false, promo = false }: { events?: boolean; metrics?: boolean;
+export function SchoolPulse({ events = true, metrics = false, promo = false, fees = true, headcounts = true }: { events?: boolean; metrics?: boolean;
   /** Top performers (five) beside the "Better Learning" card instead of a full-width list. */
-  promo?: boolean }) {
+  promo?: boolean;
+  /** The Fee Collection card among the metrics; without it the fourth card shows students on track. */
+  fees?: boolean;
+  /** Total students and total staff among the metrics (off where the page shows them elsewhere). */
+  headcounts?: boolean }) {
   const { can } = useAuth();
   const school = useSchool();
   const allowed = can('dashboard.view') && can('students.read');
@@ -211,18 +241,18 @@ export function SchoolPulse({ events = true, metrics = false, promo = false }: {
   const growth = (xs?: number[]) => (xs && xs.length > 3 ? change(xs[xs.length - 1], xs[xs.length - 4]) : null);
   // Headcounts are compared with three month-ends ago (about one term).
   const since = h && h.months.length > 3 ? `vs ${h.months[h.months.length - 4]}` : undefined;
-  const fee = d.finance;
+  const fee = fees ? d.finance : null;
   const feeMonths = fee?.monthly ?? [];
   const feeDelta = feeMonths.length > 1 ? Math.round((feeMonths[feeMonths.length - 1].pct - feeMonths[feeMonths.length - 2].pct) * 10) / 10 : null;
 
   let chart: ReactNode = null;
   if (view === 'trend' && a.trend.length > 1) {
-    const series: LineSeries[] = [{ name: 'Students', values: trendVals, color: 'var(--brand)' }];
-    if (a.staffTrend?.some((v) => v != null)) series.push({ name: 'Staff', values: a.staffTrend, color: '#9A7BE0', area: false });
+    const series: LineSeries[] = [{ name: 'Students', values: trendVals, color: '#18181B' }];
+    if (a.staffTrend?.some((v) => v != null)) series.push({ name: 'Staff', values: a.staffTrend, color: '#3B82F6' });
     chart = (
       <>
         <LineChart labels={trend.map((t) => MONTH(t.day))} tips={trend.map((t) => MONTH(t.day, true))} series={series}
-          height={158} label="Attendance over recent school days" />
+          height={210} label="Attendance over recent school days" smooth />
         <div className="vizlegend">{series.map((x) => <span key={x.name}><i style={{ background: x.color }} />{x.name}</span>)}</div>
       </>
     );
@@ -240,11 +270,11 @@ export function SchoolPulse({ events = true, metrics = false, promo = false }: {
   return (
     <>
       {metrics && (
-        <div className="grid g-4col">
-          <MetricCard icon="users" tone="rose" label="Total Students" value={fmt.n(s.total)} to="/students"
-            delta={growth(h?.students)} compare={since} spark={h?.students} />
-          <MetricCard icon="user" tone="blue" label="Total Staff" value={fmt.n(d.staff.total)} to={can('hr.read') ? '/workforce' : undefined}
-            delta={growth(h?.staff)} compare={since} spark={h?.staff?.slice(-6)} sparkLabels={h?.months.slice(-6)} viz="bars" />
+        <div className={headcounts ? 'grid g-4col' : 'grid g-2col'}>
+          {headcounts && <MetricCard icon="users" tone="rose" label="Total Students" value={fmt.n(s.total)} to="/students"
+            delta={growth(h?.students)} compare={since} spark={h?.students} />}
+          {headcounts && <MetricCard icon="user" tone="blue" label="Total Staff" value={fmt.n(d.staff.total)} to={can('hr.read') ? '/workforce' : undefined}
+            delta={growth(h?.staff)} compare={since} spark={h?.staff?.slice(-6)} sparkLabels={h?.months.slice(-6)} viz="bars" />}
           <MetricCard icon="calendar" tone="green" label="Attendance Rate" value={attRate != null ? `${attRate}%` : '—'} to="/attendance"
             delta={attDelta} deltaUnit=" pts" compare="vs last week" pct={attRate} viz="ring" />
           {fee ? (
@@ -273,9 +303,9 @@ export function SchoolPulse({ events = true, metrics = false, promo = false }: {
         <DonutCard link={{ to: '/academic-performance' }}
           center={overall != null ? `${overall}%` : undefined} centerSub={overall != null ? 'Overall Performance' : undefined}
           bands={[
-            { label: 'On Track', value: s.onTrack, color: '#14B8A6', to: '/students?risk=On+Track' },
-            { label: 'Developing Risk', value: s.developing, color: '#F59E0B', to: '/students?risk=Developing+Risk' },
-            { label: 'At Risk', value: s.atRisk, color: '#E11D48', to: '/students?risk=At+Risk' },
+            { label: 'On Track', value: s.onTrack, color: '#18181B', to: '/students?risk=On+Track' },
+            { label: 'Developing Risk', value: s.developing, color: '#3B82F6', to: '/students?risk=Developing+Risk' },
+            { label: 'At Risk', value: s.atRisk, color: '#EF4444', to: '/students?risk=At+Risk' },
           ]} />
       </div>
       {promo ? (

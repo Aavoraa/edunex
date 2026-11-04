@@ -54,8 +54,8 @@ export function Sparkline({ values, color, className }: { values: number[]; colo
 
 /* ---- Metric card ----------------------------------------------------------- */
 export type MetricTone = 'rose' | 'blue' | 'green' | 'amber';
-/** Four distinct tones: indigo, violet, teal and sky blue. */
-const SPARK: Record<MetricTone, string> = { rose: '#3B3FD9', blue: '#7C5CE6', green: '#14B8A6', amber: '#0EA5E9' };
+/** Black and blue, alternating, for the monochrome look. */
+const SPARK: Record<MetricTone, string> = { rose: '#18181B', blue: '#3B82F6', green: '#18181B', amber: '#3B82F6' };
 
 /** Small monthly bars; the latest bar is solid, earlier ones lighter. */
 export function MiniBars({ values, labels, color, className }: { values: number[]; labels?: string[]; color: string; className?: string }) {
@@ -152,12 +152,33 @@ export function MetricCard({ icon, tone, label, value, delta, deltaUnit = '%', c
 /* ---- Line chart -------------------------------------------------------------- */
 export interface LineSeries { name: string; values: (number | null)[]; color: string; area?: boolean }
 
+/** A smooth curve through the points that never overshoots them (monotone cubic interpolation). */
+function smoothPath(pts: readonly (readonly [number, number])[]) {
+  const n = pts.length;
+  if (n < 3) return pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
+  const m = pts.slice(0, -1).map((p, i) => (pts[i + 1][1] - p[1]) / (pts[i + 1][0] - p[0] || 1));
+  const t = pts.map((_, i) => (i === 0 ? m[0] : i === n - 1 ? m[n - 2] : m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2));
+  for (let i = 0; i < n - 1; i++) {
+    if (m[i] === 0) { t[i] = 0; t[i + 1] = 0; continue; }
+    const a = t[i] / m[i], b = t[i + 1] / m[i], s = a * a + b * b;
+    if (s > 9) { const k = 3 / Math.sqrt(s); t[i] = k * a * m[i]; t[i + 1] = k * b * m[i]; }
+  }
+  let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], h = (x1 - x0) / 3;
+    d += ` C${(x0 + h).toFixed(1)} ${(y0 + t[i] * h).toFixed(1)} ${(x1 - h).toFixed(1)} ${(y1 - t[i + 1] * h).toFixed(1)} ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+  }
+  return d;
+}
+
 /**
  * Percentage line chart with a light grid, small dots, a pale fill under the
  * first series and a tooltip that follows the pointer (the latest point by default).
+ * `smooth`: flowing curves without dots, each series with its own soft gradient fill.
  */
-export function LineChart({ labels, tips, series, yMin, yMax = 100, unit = '%', height = 200, label }: {
+export function LineChart({ labels, tips, series, yMin, yMax = 100, unit = '%', height = 200, label, smooth = false }: {
   labels: string[]; tips?: string[]; series: LineSeries[]; yMin?: number; yMax?: number; unit?: string; height?: number; label: string;
+  smooth?: boolean;
 }) {
   const gid = useId().replace(/:/g, '');
   const n = labels.length;
@@ -178,9 +199,10 @@ export function LineChart({ labels, tips, series, yMin, yMax = 100, unit = '%', 
 
   const paths = useMemo(() => series.map((s) => {
     const pts = s.values.map((v, i) => (v == null ? null : [X(i), Y(v)] as const)).filter(Boolean) as (readonly [number, number])[];
-    const d = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
+    const d = smooth ? smoothPath(pts) : pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
     return { s, pts, d };
-  }), [series, n, lo, yMax, H]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [series, n, lo, yMax, H, smooth]); // eslint-disable-line react-hooks/exhaustive-deps
+  const areaOf = (p: (typeof paths)[number]) => `${p.d} L${p.pts[p.pts.length - 1][0]} ${P.t + ih} L${p.pts[0][0]} ${P.t + ih} Z`;
 
   const fmtTick = (v: number) => `${Number.isInteger(v) ? v : v.toFixed(1)}${unit}`;
   const summary = `${label}. ${series.map((s) => `${s.name}: ${s.values.map((v, i) => (v == null ? null : `${labels[i]} ${v}${unit}`)).filter(Boolean).join(', ')}`).join('. ')}`;
@@ -198,23 +220,33 @@ export function LineChart({ labels, tips, series, yMin, yMax = 100, unit = '%', 
             <stop offset="0" stopColor={main?.color} stopOpacity=".16" />
             <stop offset="1" stopColor={main?.color} stopOpacity="0" />
           </linearGradient>
+          {smooth && series.map((s, i) => (
+            <linearGradient key={s.name} id={`lc${gid}-${i}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor={s.color} stopOpacity=".32" />
+              <stop offset=".75" stopColor={s.color} stopOpacity=".05" />
+              <stop offset="1" stopColor={s.color} stopOpacity="0" />
+            </linearGradient>
+          ))}
         </defs>
         {ticks.map((t) => (
           <g key={t}>
-            <line x1={P.l} x2={W - P.r} y1={Y(t)} y2={Y(t)} stroke="var(--viz-grid)" strokeDasharray="3 4" />
+            <line x1={P.l} x2={W - P.r} y1={Y(t)} y2={Y(t)} stroke="var(--viz-grid)" strokeDasharray={smooth ? undefined : '3 4'} strokeOpacity={smooth ? 0.6 : 1} />
             <text x={P.l - 10} y={Y(t) + 3.5} textAnchor="end" fontSize="10" fill="var(--text-muted)">{fmtTick(t)}</text>
           </g>
         ))}
         {labels.map((l, i) => (i % step === 0 || i === n - 1) && (
           <text key={i} x={X(i)} y={H - 6} textAnchor="middle" fontSize="10" fill="var(--text-muted)">{l}</text>
         ))}
-        {paths[0] && paths[0].pts.length > 1 && main.area !== false && (
-          <path d={`${paths[0].d} L${paths[0].pts[paths[0].pts.length - 1][0]} ${P.t + ih} L${paths[0].pts[0][0]} ${P.t + ih} Z`} fill={`url(#lc${gid})`} />
+        {!smooth && paths[0] && paths[0].pts.length > 1 && main.area !== false && (
+          <path d={areaOf(paths[0])} fill={`url(#lc${gid})`} />
         )}
+        {smooth && paths.map((p, i) => p.pts.length > 1 && p.s.area !== false && (
+          <path key={p.s.name} d={areaOf(p)} fill={`url(#lc${gid}-${i})`} />
+        ))}
         {paths.slice().reverse().map(({ s, d, pts }) => (
           <g key={s.name}>
-            <path d={d} fill="none" stroke={s.color} strokeWidth={s === main ? 1.8 : 1.5} strokeLinejoin="round" strokeLinecap="round" />
-            {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="3" fill={s.color} stroke="var(--surface)" strokeWidth="1.2" />)}
+            <path d={d} fill="none" stroke={s.color} strokeWidth={smooth ? 2.2 : s === main ? 1.8 : 1.5} strokeLinejoin="round" strokeLinecap="round" />
+            {!smooth && pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="3" fill={s.color} stroke="var(--surface)" strokeWidth="1.2" />)}
           </g>
         ))}
         {tipValue != null && <line x1={X(active)} x2={X(active)} y1={P.t} y2={P.t + ih} stroke="var(--border)" />}
@@ -233,19 +265,33 @@ export function LineChart({ labels, tips, series, yMin, yMax = 100, unit = '%', 
 /* ---- Donut ------------------------------------------------------------------- */
 export interface DonutBand { label: string; value: number; color: string; to?: string }
 
+/**
+ * A ring of bands on a white disc: thin arcs with rounded ends and a clear gap between them over a
+ * faint track, the headline figure in the middle.
+ */
 export function Donut({ bands, center, centerSub, label }: { bands: DonutBand[]; center: string; centerSub?: string; label: string }) {
   const total = bands.reduce((s, b) => s + b.value, 0) || 1;
-  const R = 70, T = 16, C = 2 * Math.PI * R;
+  const R = 58, T = 9, C = 2 * Math.PI * R;
+  const shown = bands.filter((b) => b.value > 0);
+  // Round caps reach half the stroke past each end, so the gap allows for them plus a visible space.
+  const gap = shown.length > 1 ? T + 7 : 0;
   let acc = 0;
   return (
-    <div className="donut">
+    <div className="donut donut--ring">
       <svg viewBox="0 0 160 160" role="img" aria-label={`${label}: ${bands.map((b) => `${b.label} ${Math.round((b.value / total) * 100)}%`).join(', ')}`}>
+        <defs>
+          <radialGradient id="donut-disc" cx="50%" cy="38%" r="70%">
+            <stop offset="0" stopColor="#FFFFFF" />
+            <stop offset="1" stopColor="#F4F5FA" />
+          </radialGradient>
+        </defs>
+        <circle cx="80" cy="80" r="78" fill="url(#donut-disc)" />
+        <circle cx="80" cy="80" r={R} fill="none" stroke="#1E1B4B" strokeOpacity=".07" strokeWidth={T} />
         <g transform="rotate(-90 80 80)">
-          {bands.map((b) => {
+          {shown.map((b) => {
             const len = (b.value / total) * C;
-            const gap = bands.filter((x) => x.value > 0).length > 1 ? 2 : 0;
-            const el = <circle key={b.label} cx="80" cy="80" r={R} fill="none" stroke={b.color} strokeWidth={T}
-              strokeDasharray={`${Math.max(0, len - gap)} ${C}`} strokeDashoffset={-acc} />;
+            const el = <circle key={b.label} cx="80" cy="80" r={R} fill="none" stroke={b.color} strokeWidth={T} strokeLinecap="round"
+              strokeDasharray={`${Math.max(0.01, len - gap)} ${C}`} strokeDashoffset={-(acc + gap / 2)} />;
             acc += len;
             return el;
           })}

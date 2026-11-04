@@ -93,6 +93,8 @@ export function AppShell() {
       <aside className="sidebar" id="sidebar" aria-label="Main menu">
         <Sidebar rail={rail} onToggleRail={() => setRail((r) => !r)} onExpand={() => setRail(false)} counts={counts.data} />
       </aside>
+      {/* Spiral binding between the menu and the page, like a notebook (decorative). */}
+      <div className="spiral" aria-hidden="true" />
       <div className="main">
         <header className="topbar" id="topbar">
           <Topbar
@@ -103,7 +105,7 @@ export function AppShell() {
           />
         </header>
         <main className="view" id="main" ref={mainRef} tabIndex={-1}>
-          <Outlet />
+          <PageTurn><Outlet /></PageTurn>
         </main>
       </div>
       <MobileNav onDrawer={() => setDrawer((d) => !d)} />
@@ -770,4 +772,25 @@ function roleDescription(key: string) {
     management: 'dashboards, reports and authorised student information',
     student: 'their own profile',
   } as Record<string, string>)[key] ?? 'the modules assigned to the role';
+}
+
+/**
+ * Each new page turns in like the leaf of a book, hinged on its left edge. Keyed on the path, so
+ * changing a filter or tab (the query string) does not turn the page. The transform is dropped
+ * once the turn ends, so sticky headers and menus inside the page behave normally.
+ */
+function PageTurn({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  const ref = useRef<HTMLDivElement>(null);
+  // A tab in the background may never run the animation: show the page anyway after a second.
+  useEffect(() => {
+    const id = window.setTimeout(() => ref.current?.classList.add('pageturn--done'), 1000);
+    return () => window.clearTimeout(id);
+  }, [pathname]);
+  return (
+    <div key={pathname} ref={ref} className="pageturn"
+      onAnimationEnd={(e) => { if (e.target === e.currentTarget) e.currentTarget.classList.add('pageturn--done'); }}>
+      {children}
+    </div>
+  );
 }

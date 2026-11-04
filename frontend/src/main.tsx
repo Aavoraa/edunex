@@ -27,6 +27,7 @@ import './styles/system.css';
 import './styles/hues.css';
 import './styles/reference.css';
 import './styles/premium.css';
+import './styles/mono.css';
 
 initTheme();
 
