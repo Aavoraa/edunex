@@ -4,11 +4,22 @@ import { z } from 'zod';
  * Validated runtime configuration. The process refuses to start with a
  * missing or weak secret rather than falling back to an insecure default.
  */
+/** Set by Vercel in its functions: no persistent disk (only /tmp) and many short-lived instances. */
+const ON_VERCEL = !!process.env.VERCEL;
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
-  DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
+  /** Each Vercel function instance has its own pool, so keep it small there. */
+  DATABASE_POOL_MAX: z.coerce.number().int().positive().default(ON_VERCEL ? 3 : 10),
+  /**
+   * TLS to the database: 'off' (local server), 'require' (encrypted; certificate not checked, as many
+   * hosted poolers need) or 'verify' (encrypted and checked, against DATABASE_CA_CERT when given).
+   */
+  DATABASE_SSL: z.enum(['off', 'require', 'verify']).default('off'),
+  /** PEM certificate of the database's CA; "\n" in the value is read as a line break. */
+  DATABASE_CA_CERT: z.string().optional(),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
   JWT_ACCESS_TTL: z.string().default('15m'),
@@ -21,8 +32,25 @@ const schema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(3000),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
-  /** Uploaded documents are stored under this folder. */
-  UPLOAD_DIR: z.string().default('./uploads'),
+  /**
+   * Where uploaded documents are kept: 'local' (UPLOAD_DIR on this machine) or 's3' (any S3-compatible
+   * store: AWS S3, Cloudflare R2, Supabase Storage, MinIO). Objects stay private; the API streams them.
+   * On Vercel use 's3': its disk is wiped between requests.
+   */
+  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  /** Uploaded documents are stored under this folder (STORAGE_DRIVER=local). */
+  UPLOAD_DIR: z.string().default(ON_VERCEL ? '/tmp/uploads' : './uploads'),
+  S3_BUCKET: z.string().optional(),
+  /** 'auto' suits R2; AWS needs the bucket's region. */
+  S3_REGION: z.string().default('auto'),
+  /** Unset for AWS; the provider's S3 endpoint otherwise (R2, Supabase, MinIO). */
+  S3_ENDPOINT: z.preprocess((v) => (v === '' ? undefined : v), z.url().optional()),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+  /** Path-style URLs (bucket in the path): needed by MinIO and Supabase Storage. */
+  S3_FORCE_PATH_STYLE: z.stringbool().default(false),
+  /** Vercel Cron sends it as "Authorization: Bearer …" to /api/internal/cron/*; unset = those endpoints refuse. */
+  CRON_SECRET: z.string().min(16, 'CRON_SECRET must be at least 16 characters').optional(),
   UPLOAD_MAX_MB: z.coerce.number().positive().default(10),
   /** GPS devices: how often a device should send, and when it counts as online / stale / offline. */
   LOCATION_INTERVAL_SECONDS: z.coerce.number().int().min(5).max(3600).default(30),
@@ -65,6 +93,11 @@ const schema = z.object({
   if (c.OFFLINE_THRESHOLD_SECONDS <= c.ONLINE_THRESHOLD_SECONDS) {
     ctx.addIssue({ code: 'custom', path: ['OFFLINE_THRESHOLD_SECONDS'], message: 'must be greater than ONLINE_THRESHOLD_SECONDS' });
   }
+  if (c.STORAGE_DRIVER === 's3') {
+    for (const k of ['S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const) {
+      if (!c[k]) ctx.addIssue({ code: 'custom', path: [k], message: 'is required when STORAGE_DRIVER=s3' });
+    }
+  }
   if (c.EXAM_VISION_URL && (c.EXAM_VISION_SECRET ?? '').length < 32) {
     ctx.addIssue({ code: 'custom', path: ['EXAM_VISION_SECRET'], message: 'must be at least 32 characters when EXAM_VISION_URL is set' });
   }
@@ -80,6 +113,7 @@ if (!parsed.success) {
 
 export const env = {
   ...parsed.data,
+  onVercel: ON_VERCEL,
   corsOrigins: parsed.data.CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean),
   isProd: parsed.data.NODE_ENV === 'production',
   isTest: parsed.data.NODE_ENV === 'test',

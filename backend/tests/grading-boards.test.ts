@@ -236,6 +236,7 @@ describe('Grade scales per board', () => {
     expect(cambridge.every((o: any) => o.board === 'igcse')).toBe(true);
 
     const sub = await one<{ id: string }>(`SELECT id FROM subjects WHERE code = 'MAT'`);
+    await query(`DELETE FROM learning_objectives WHERE code = 'M9MA.99'`); // left by an earlier run
     const r = await api.post('/api/academics/objectives', { board: 'matriculation', code: 'M9MA.99', description: 'Test outcome', subjectId: sub!.id, stageLabel: 'Std IX' });
     expect(r.status).toBe(201);
     const row = await one<{ board: string }>(`SELECT board FROM learning_objectives WHERE code = 'M9MA.99'`);

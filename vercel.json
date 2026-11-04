@@ -1,0 +1,47 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "web": {
+      "root": "frontend",
+      "framework": "vite"
+    },
+    "api": {
+      "root": "backend",
+      "framework": "express",
+      "entrypoint": "src/vercel.ts",
+      "bindings": [
+        {
+          "type": "service",
+          "service": "exam-vision",
+          "format": "url",
+          "env": "EXAM_VISION_URL"
+        }
+      ]
+    },
+    "exam-vision": {
+      "root": "exam-vision/backend",
+      "framework": "fastapi",
+      "entrypoint": "app/main.py"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/internal/cron/notifications",
+      "schedule": "*/10 * * * *"
+    }
+  ]
+}

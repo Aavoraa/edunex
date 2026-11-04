@@ -14,6 +14,7 @@ export default defineConfig({
       ...env,
       NODE_ENV: 'test',
       DATABASE_URL: env.TEST_DATABASE_URL || (env.DATABASE_URL ?? '').replace(/\/([^/?]+)(\?|$)/, '/$1_test$2'),
+      CRON_SECRET: 'test-cron-secret-0123456789',
     },
   },
 });

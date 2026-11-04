@@ -8,8 +8,18 @@ pg.types.setTypeParser(pg.types.builtins.DATE, (v) => v);
 pg.types.setTypeParser(pg.types.builtins.NUMERIC, (v) => (v === null ? null : Number(v)));
 pg.types.setTypeParser(pg.types.builtins.INT8, (v) => (v === null ? null : Number(v)));
 
+/** TLS settings for a hosted database (DATABASE_SSL); none for a local server. */
+function sslConfig(): pg.PoolConfig['ssl'] {
+  if (env.DATABASE_SSL === 'off') return undefined;
+  return {
+    rejectUnauthorized: env.DATABASE_SSL === 'verify',
+    ...(env.DATABASE_CA_CERT ? { ca: env.DATABASE_CA_CERT.replace(/\\n/g, '\n') } : {}),
+  };
+}
+
 export const pool = new pg.Pool({
   connectionString: env.DATABASE_URL,
+  ssl: sslConfig(),
   max: env.DATABASE_POOL_MAX,
   idleTimeoutMillis: 30_000,
   // Fail fast instead of hanging when the database is not running.
