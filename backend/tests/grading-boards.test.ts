@@ -6,13 +6,16 @@
  */
 import { afterAll, describe, expect, it } from 'vitest';
 import { as } from './helpers.js';
-import { many, one, pool } from '../src/config/db.js';
+import { many, one, pool, query } from '../src/config/db.js';
 
 afterAll(() => pool.end());
 
 const MATRIC = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'D', 'E1', 'E2'];
 const IGCSE = ['A*', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'U'];
 const CBSE = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'D', 'E'];
+const ICSE = ['A+', 'A', 'B+', 'B', 'C+', 'C', 'D', 'E'];
+const NIOS = ['A', 'B', 'C', 'D', 'E'];
+const IB = ['7', '6', '5', '4', '3', '2', '1'];
 
 async function vdvClass(grade: number) {
   const c = await one<{ id: string; board: string }>(
@@ -36,7 +39,7 @@ describe('Grade scales per board', () => {
     expect(igcse).toMatchObject({ board: 'igcse', tiered: true });
     expect(igcse.boundaries.map((b: any) => b.grade)).toEqual(IGCSE);
 
-    expect((await api.get('/api/grading/scale?board=icse')).status).toBe(400);
+    expect((await api.get('/api/grading/scale?board=aqa')).status).toBe(400);
   });
 
   it('lists the boards and the classes that follow each', async () => {
@@ -44,7 +47,7 @@ describe('Grade scales per board', () => {
     const r = await api.get('/api/grading/boards');
     expect(r.status).toBe(200);
     const { boards, classes } = r.body.data;
-    expect(boards.map((b: any) => b.board)).toEqual(['igcse', 'matriculation', 'cbse']);
+    expect(boards.map((b: any) => b.board)).toEqual(['igcse', 'matriculation', 'cbse', 'icse', 'nios', 'ib']);
     const matric = classes.filter((c: any) => c.board === 'matriculation');
     expect(matric.map((c: any) => `${c.campus}:${c.gradeLevel}`).sort()).toEqual(['Vadavalli:6', 'Vadavalli:7', 'Vadavalli:8', 'Vadavalli:9']);
     expect(boards.find((b: any) => b.board === 'matriculation')).toMatchObject({ classes: 4, range: 'A1–E2' });
@@ -171,7 +174,7 @@ describe('Grade scales per board', () => {
     const summary = (await api.get('/api/academics/assessments/summary?board=matriculation')).body.data;
     expect(summary.distribution.board).toBe('matriculation');
     expect(summary.distribution.labels).toEqual(MATRIC);
-    expect((await api.get('/api/academics/assessments?board=icse')).status).toBe(400);
+    expect((await api.get('/api/academics/assessments?board=aqa')).status).toBe(400);
   });
 
   it('keeps Matriculation syllabuses, papers and unit coverage apart from IGCSE', async () => {
@@ -262,8 +265,10 @@ describe('Grade scales per board', () => {
     expect((await api.get('/api/academics/assessments/summary?board=cbse')).body.data.distribution.labels).toEqual(CBSE);
 
     const syl = (await api.get('/api/syllabuses?board=cbse')).body.data;
-    expect(syl.length).toBe(4);
-    expect(syl.every((s: any) => s.board === 'cbse' && s.grading === 'A1-E' && s.sections > 0)).toBe(true);
+    // The four seeded CBSE syllabuses (other tests may add more).
+    expect(syl.map((s: any) => s.title)).toEqual(expect.arrayContaining(['CBSE Mathematics — Class VIII', 'CBSE Mathematics — Class IX', 'CBSE Science — Class VIII', 'CBSE Science — Class IX']));
+    expect(syl.every((s: any) => s.board === 'cbse' && s.grading === 'A1-E')).toBe(true);
+    expect(syl.filter((s: any) => / — Class (VIII|IX)$/.test(s.title)).every((s: any) => s.sections > 0)).toBe(true);
     const outcomes = (await api.get('/api/academics/objectives?board=cbse&pageSize=100')).body.data;
     expect(outcomes.length).toBeGreaterThan(0);
     expect(outcomes.every((o: any) => o.board === 'cbse' && o.stage.startsWith('Class '))).toBe(true);
@@ -275,10 +280,130 @@ describe('Grade scales per board', () => {
     await api.put('/api/grading/scale/boundaries', { board: 'cbse', boundaries: [{ grade: 'D', minPercent: 33 }] });
   });
 
+  it('runs ICSE as a fourth board: scale, classes, marks, syllabuses, outcomes and catalogue', async () => {
+    const api = await as('principal');
+    const scale = (await api.get('/api/grading/scale?board=icse')).body.data;
+    expect(scale).toMatchObject({ board: 'icse', boardName: 'ICSE', tiered: false, isFallback: false });
+    expect(scale.boundaries.map((b: any) => b.grade)).toEqual(ICSE);
+    expect(scale.boundaries.map((b: any) => b.minPercent)).toEqual([90, 80, 70, 60, 50, 40, 33, 0]);
+    expect(scale.expectationBands).toMatchObject({ above: 70, at: 60, aboveGrade: 'B+', atGrade: 'B' });
+
+    const { classes } = (await api.get('/api/grading/boards')).body.data;
+    expect(classes.filter((c: any) => c.board === 'icse').map((c: any) => `${c.campus}:${c.gradeLevel}`).sort())
+      .toEqual(['Vadavalli:1', 'Vadavalli:2', 'Vadavalli:3', 'Vadavalli:4', 'Vadavalli:5']);
+
+    const marks = await many<{ grade: string }>(
+      `SELECT DISTINCT m.grade FROM assessment_marks m JOIN assessments a ON a.id = m.assessment_id JOIN classes c ON c.id = a.class_id
+        WHERE c.board = 'icse' AND m.grade IS NOT NULL`,
+    );
+    expect(marks.length).toBeGreaterThan(0);
+    expect(marks.every((m) => ICSE.includes(m.grade))).toBe(true);
+    const list = (await api.get('/api/academics/assessments?board=icse&pageSize=100')).body.data;
+    expect(list.map((a: any) => a.code).sort()).toEqual(['AS-3309', 'AS-3310']);
+
+    const syl = (await api.get('/api/syllabuses?board=icse')).body.data;
+    expect(syl.map((s: any) => s.title)).toEqual(expect.arrayContaining(['ICSE Mathematics — Class V', 'ICSE Science — Class V']));
+    expect(syl.every((s: any) => s.board === 'icse' && s.grading === 'A+-E')).toBe(true);
+    const outcomes = (await api.get('/api/academics/objectives?board=icse&pageSize=100')).body.data;
+    expect(outcomes.length).toBeGreaterThan(0);
+    expect(outcomes.every((o: any) => o.board === 'icse')).toBe(true);
+
+    // CISCE's ICSE 2027 subjects, by group, for Classes IX–X.
+    const cat = (await api.get('/api/syllabus-catalogue?board=icse')).body.data;
+    expect(cat.source.url).toBe('https://cisce.org/regulations-and-syllabus-icse-2027/');
+    expect(cat.categories).toEqual(['Group I (compulsory)', 'Group II', 'Group III', 'Internal assessment']);
+    const physics = cat.rows.find((r: any) => r.subject === 'Physics');
+    expect(physics).toMatchObject({ category: 'Group II', gradeLevels: [9, 10], suggestedCategory: 'Science' });
+    expect(physics.byGrade.find((g: any) => g.grade === 10).documents[0].url).toBe('https://cisce.org/regulations-and-syllabus-icse-2027/');
+
+    const admin = await as('superadmin');
+    await query(`DELETE FROM syllabuses WHERE board_catalogue_id = $1`, [physics.id]);
+    const r = await admin.post('/api/syllabus-catalogue/add', { board: 'icse', catalogueId: physics.id, category: 'Science', gradeLevels: [10, 9] });
+    expect(r.status).toBe(201);
+    const s = (await admin.get(`/api/syllabuses/${r.body.data.id}`)).body.data;
+    expect(s).toMatchObject({ board: 'icse', title: 'ICSE Physics — Classes IX–X', gradeLevels: [9, 10], subject: 'Physics' });
+    expect(s.catalogue.byGrade.map((g: any) => g.grade)).toEqual([9, 10]);
+  });
+
+  it('runs NIOS as a fifth board: scale, syllabuses, outcomes and catalogue', async () => {
+    const api = await as('principal');
+    const scale = (await api.get('/api/grading/scale?board=nios')).body.data;
+    expect(scale).toMatchObject({ board: 'nios', boardName: 'NIOS', tiered: false, isFallback: false });
+    expect(scale.boundaries.map((b: any) => b.grade)).toEqual(NIOS);
+    expect(scale.boundaries.map((b: any) => b.minPercent)).toEqual([75, 60, 45, 33, 0]);
+    expect(scale.expectationBands).toMatchObject({ above: 60, at: 45, aboveGrade: 'B', atGrade: 'C' });
+
+    // No demo class follows NIOS (Guduvanchery 11–12 are IB); the board, syllabuses and outcomes are ready to use.
+    const { boards } = (await api.get('/api/grading/boards')).body.data;
+    expect(boards.find((b: any) => b.board === 'nios')).toMatchObject({ classes: 0, range: 'A–E' });
+
+    const syl = (await api.get('/api/syllabuses?board=nios')).body.data;
+    expect(syl.map((s: any) => s.title)).toEqual(expect.arrayContaining(['NIOS Mathematics (311) — Class XI', 'NIOS Physics (312) — Class XII']));
+    // The seeded syllabuses are linked to NIOS's official course pages.
+    const maths11 = syl.find((s: any) => s.title === 'NIOS Mathematics (311) — Class XI');
+    expect(maths11.catalogue.byGrade[0].documents[0].url).toBe('https://www.nios.ac.in/online-course-material/sr-secondary-courses/Mathematics-(311).aspx');
+    expect((await api.get('/api/academics/objectives?board=nios&pageSize=100')).body.data.every((o: any) => o.board === 'nios')).toBe(true);
+
+    const cat = (await api.get('/api/syllabus-catalogue?board=nios')).body.data;
+    expect(cat.categories).toEqual(expect.arrayContaining(['Secondary — Languages', 'Secondary — Academic subjects', 'Senior Secondary — Academic subjects']));
+    const sec = cat.rows.find((r: any) => r.subject === 'Science and Technology');
+    expect(sec).toMatchObject({ gradeLevels: [9, 10], suggestedCategory: 'Science' });
+    expect(sec.byGrade[0].documents[0]).toMatchObject({ label: 'Course material & syllabus — subject 212' });
+    expect(cat.rows.some((r: any) => /Physical Education and Yog/.test(r.subject))).toBe(false); // 404 at source, left out
+
+    const admin = await as('superadmin');
+    const psych = cat.rows.find((r: any) => r.subject === 'Psychology' && r.category.startsWith('Senior'));
+    await query(`DELETE FROM syllabuses WHERE board_catalogue_id = $1`, [psych.id]);
+    const r = await admin.post('/api/syllabus-catalogue/add', { board: 'nios', catalogueId: psych.id, category: 'Social Science', gradeLevels: [11, 12] });
+    expect(r.status).toBe(201);
+    expect((await admin.get(`/api/syllabuses/${r.body.data.id}`)).body.data).toMatchObject({ board: 'nios', title: 'NIOS Psychology — Classes XI–XII', grading: 'A-E' });
+  });
+
+  it('runs the IB Diploma Programme as a sixth board: 7–1 grades, classes, two-year syllabuses and catalogue', async () => {
+    const api = await as('principal');
+    const scale = (await api.get('/api/grading/scale?board=ib')).body.data;
+    expect(scale).toMatchObject({ board: 'ib', boardName: 'IB', tiered: false, isFallback: false });
+    expect(scale.boundaries.map((b: any) => b.grade)).toEqual(IB);
+    expect(scale.boundaries.map((b: any) => b.minPercent)).toEqual([80, 70, 60, 50, 40, 30, 0]);
+    expect(scale.expectationBands).toMatchObject({ above: 70, at: 60, aboveGrade: '6', atGrade: '5' });
+
+    const { classes } = (await api.get('/api/grading/boards')).body.data;
+    expect(classes.filter((c: any) => c.board === 'ib').map((c: any) => `${c.campus}:${c.gradeLevel}`).sort())
+      .toEqual(['Guduvanchery:11', 'Guduvanchery:12']);
+    const marks = await many<{ grade: string }>(
+      `SELECT DISTINCT m.grade FROM assessment_marks m JOIN assessments a ON a.id = m.assessment_id JOIN classes c ON c.id = a.class_id
+        WHERE c.board = 'ib' AND m.grade IS NOT NULL`,
+    );
+    expect(marks.length).toBeGreaterThan(0);
+    expect(marks.every((m) => IB.includes(m.grade))).toBe(true);
+    expect((await api.get('/api/academics/assessments?board=ib&pageSize=100')).body.data.map((a: any) => a.code).sort()).toEqual(['AS-3313', 'AS-3314']);
+
+    // DP courses are two-year: one syllabus for Grades 11–12, with coverage for both grades' sections.
+    const syl = (await api.get('/api/syllabuses?board=ib')).body.data;
+    const aa = syl.find((s: any) => s.title === 'IB DP Mathematics: Analysis and Approaches SL — Grades 11–12');
+    expect(aa).toMatchObject({ gradeLevels: [11, 12], grading: '7-1' });
+    expect(aa.sections).toBeGreaterThan(0);
+    expect(aa.catalogue).toMatchObject({ subject: 'Mathematics: analysis and approaches' });
+    expect((await api.get('/api/academics/objectives?board=ib&pageSize=100')).body.data.every((o: any) => o.board === 'ib')).toBe(true);
+
+    const cat = (await api.get('/api/syllabus-catalogue?board=ib')).body.data;
+    expect(cat.source.url).toBe('https://www.ibo.org/programmes/diploma-programme/curriculum/');
+    expect(cat.categories).toEqual(expect.arrayContaining(['Group 1 — Studies in language and literature', 'Group 4 — Sciences', 'Group 5 — Mathematics', 'DP core']));
+    expect(cat.rows.find((r: any) => r.subject === 'Global politics')).toMatchObject({ gradeLevels: [11, 12], suggestedCategory: 'Social Science' });
+    expect(cat.rows.find((r: any) => r.subject === 'Language B').suggestedCategory).toBe('Languages');
+
+    const admin = await as('superadmin');
+    const econ = cat.rows.find((r: any) => r.subject === 'Economics');
+    await query(`DELETE FROM syllabuses WHERE board_catalogue_id = $1`, [econ.id]);
+    const r = await admin.post('/api/syllabus-catalogue/add', { board: 'ib', catalogueId: econ.id, category: 'Social Science', gradeLevels: [11, 12] });
+    expect(r.status).toBe(201);
+    expect((await admin.get(`/api/syllabuses/${r.body.data.id}`)).body.data).toMatchObject({ board: 'ib', title: 'IB DP Economics — Grades 11–12', grading: '7-1' });
+  });
+
   it('uses each board’s bands in academic performance and analytics', async () => {
     const api = await as('principal');
     const perf = (await api.get('/api/academics/performance')).body.data;
-    expect(perf.expectations.map((e: any) => e.board)).toEqual(['cbse', 'igcse', 'matriculation']);
+    expect(perf.expectations.map((e: any) => e.board)).toEqual(['cbse', 'ib', 'icse', 'igcse', 'matriculation']);
     expect(perf.expectations.find((e: any) => e.board === 'matriculation')).toMatchObject({ aboveGrade: 'B1', atGrade: 'B2' });
     const students = await api.get('/api/academics/performance/students?pageSize=100&sort=average&dir=desc');
     expect(students.status).toBe(200);
@@ -287,7 +412,7 @@ describe('Grade scales per board', () => {
 
     const a = (await api.get('/api/analytics/overview?area=academics')).body.data.data;
     const boards = new Set(a.distributions.map((x: any) => x.board));
-    expect(boards).toEqual(new Set(['igcse', 'matriculation', 'cbse']));
+    expect(boards).toEqual(new Set(['igcse', 'matriculation', 'cbse', 'icse', 'ib']));
     expect(a.distributions.filter((x: any) => x.board === 'matriculation').map((x: any) => x.label)).toEqual(MATRIC);
   });
 });

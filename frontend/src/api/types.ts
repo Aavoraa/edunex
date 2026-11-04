@@ -33,7 +33,7 @@ export interface Lookups {
   campuses: Campus[];
   academicYears: { id: string; label: string; startsOn: string; endsOn: string; isCurrent: boolean; isLocked: boolean }[];
   classes: { id: string; name: string; gradeLevel: number; stage: string; board?: string; campusId: string; sections: { id: string; name: string; room: string }[] }[];
-  subjects: { id: string; code: string; name: string; stage: string }[];
+  subjects: { id: string; code: string; name: string; stage: string; category?: string | null }[];
   houses: string[];
   routes?: { id: string; code: string; name: string; area: string; campusId: string; stops: { id: string; name: string }[] }[];
   staff?: { id: string; fullName: string; designation: string; employeeType: string; department: string }[];

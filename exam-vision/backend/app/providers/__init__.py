@@ -1,5 +1,5 @@
 # backend/app/providers/__init__.py
-"""Factories for the Claude reader and evaluator. Tests replace them with fakes."""
+"""Factories for the AI sheet reader and answer evaluator. Tests replace them with fakes."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ FACTORIES: dict[str, Callable] = {}
 
 
 def _defaults() -> None:
-    from .claude_vision import ClaudeReader
-    from .evaluators import ClaudeEvaluator
+    from .claude_vision import SheetReader
+    from .evaluators import AnswerEvaluator
 
-    FACTORIES.setdefault("reader", ClaudeReader)
-    FACTORIES.setdefault("evaluator", ClaudeEvaluator)
+    FACTORIES.setdefault("reader", SheetReader)
+    FACTORIES.setdefault("evaluator", AnswerEvaluator)
 
 
 def reader(cfg: AIConfig):

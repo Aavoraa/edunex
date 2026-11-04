@@ -17,6 +17,8 @@ export interface SyllabusRow {
   tiered: boolean; grading: string; isActive: boolean; subjectId: string; subjectCode: string; subject: string;
   topics: number; sections: number; covered: number; inProgress: number; entries: number; coreEntries: number; students: number;
   coveragePct: number | null; componentCount: number; gradeLevels: number[]; cambridge: CambridgeInfo | null;
+  /** Matriculation / CBSE: the official catalogue entry it was added from, with its documents for these grades. */
+  catalogue: BoardCatalogueLink | null;
   components: { id: string; paperNo: string; name: string; tier: ComponentTier; maxMarks: number | null; weightingPercent: number | null }[];
 }
 
@@ -24,6 +26,51 @@ export interface SyllabusRow {
 export interface CambridgeDoc { label: string; from: number; to: number; url: string }
 /** The document that applies to one grade, from the year that grade sits its exams. */
 export interface GradeDoc { grade: number; examYear: number; document: CambridgeDoc | null; status: 'listed' | 'missing' }
+/** Official documents of a Matriculation / CBSE subject for one standard / class (migration 128). */
+export interface BoardDocGroup { grade: number; documents: { label: string; url: string }[] }
+export interface BoardCatalogueLink { id: string; subject: string; category: string; sourcePage: string | null; byGrade: BoardDocGroup[] }
+
+/** Splits "Vol II · Term I · English medium" into the medium and the rest ("Vol II · Term I"). */
+function splitMedium(label: string) {
+  const parts = label.split(' · ');
+  const medium = parts.length && / medium$/.test(parts[parts.length - 1]) ? parts.pop()! : null;
+  return { medium, rest: parts.join(' · ') };
+}
+
+/** Per standard / class, grouped by medium: "Std IX — Tamil medium: PDF · English medium: PDF". */
+export function BoardDocs({ board, byGrade, compact }: { board: SyllabusBoard; byGrade: BoardDocGroup[]; compact?: boolean }) {
+  if (!byGrade.length) return <span className="t-micro t-muted">No documents listed</span>;
+  const link = (url: string, text: string) => (
+    <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>{text}</a>
+  );
+  return (
+    <div className={compact ? 'col g-1' : 'col g-2'}>
+      {byGrade.map((g) => {
+        const groups = new Map<string, { rest: string; url: string }[]>();
+        for (const d of g.documents) {
+          const { medium, rest } = splitMedium(d.label);
+          const k = medium ?? '';
+          groups.set(k, [...(groups.get(k) ?? []), { rest, url: d.url }]);
+        }
+        return (
+          <div key={g.grade} className={compact ? 't-micro' : 't-sm'}>
+            <span className="t-bold">{levelLabel(board, g.grade)}</span>
+            {[...groups.entries()].map(([medium, docs], i) => (
+              <span key={medium || i}>
+                <span className="t-muted">{i === 0 ? ' — ' : '; '}</span>
+                {medium && <span className="t-muted">{medium}: </span>}
+                {docs.map((d, j) => (
+                  <span key={d.url + j}>{j > 0 && <span className="t-muted"> · </span>}{link(d.url, d.rest || 'PDF')}</span>
+                ))}
+              </span>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export interface CambridgeInfo { subject: string; grading: string; subjectPage: string | null; documents: CambridgeDoc[]; byGrade: GradeDoc[] }
 
 export const IGCSE_GRADES = [8, 9, 10];
@@ -71,6 +118,12 @@ export function GradePicker({ value, onChange, error, board = 'igcse' }: { value
           ? 'A Matriculation syllabus is usually for one standard (its textbook). Std X sits the SSLC public examination.'
           : board === 'cbse'
           ? 'A CBSE syllabus is usually for one class (its NCERT textbook). Classes X and XII sit the CBSE board examinations.'
+          : board === 'icse'
+          ? 'Below Class IX an ICSE syllabus is usually for one class; ICSE itself is a two-year course (Classes IX–X), and Class X sits the ICSE examination.'
+          : board === 'nios'
+          ? 'NIOS Secondary is taken as Classes IX–X and Senior Secondary as Classes XI–XII; learners sit NIOS public examinations when they are ready.'
+          : board === 'ib'
+          ? 'The IB Diploma Programme is a two-year course, Grades 11 and 12; Grade 12 sits the May examinations.'
           : 'IGCSE is a two-year course, usually Grades 9 and 10. Grade 10 sits the exams at the end of this year.'}
       </span>
       {error && <span className="field__error" role="alert">{error}</span>}
@@ -131,7 +184,7 @@ export function StageBanner({ board = 'igcse' }: { board?: SyllabusBoard }) {
     return (
       <Banner tone="neutral" icon="bookOpen">
         <strong>Classes on the {b.label} board follow the {b.textbook} textbooks.</strong> Each syllabus is one {b.level === 'Std' ? 'standard' : 'class'}’s
-        textbook: its units are the topics, and its theory and {board === 'cbse' ? 'internal assessment' : 'practical'} papers are the components. Marks are graded {b.range} — see{' '}
+        textbook: its units are the topics, and its theory and {board === 'matriculation' ? 'practical' : 'internal assessment'} papers are the components. Marks are graded {b.range} — see{' '}
         <Link to={b.routes.grading}>{b.menu} Grading</Link> and <Link to={b.routes.outcomes}>{b.menu} Learning Outcomes</Link>.
       </Banner>
     );
@@ -191,7 +244,7 @@ export function SyllabusForm({ initial, board: boardProp, onClose, onSaved }: { 
           <TextField label="Cambridge syllabus code" value={f.syllabusCode} onChange={(v) => set('syllabusCode')(v.toUpperCase())} error={errors.syllabusCode} placeholder="0580" maxLength={6}
             hint="Leave blank for a school-assessed subject." />
         )}
-        <TextField label="Title" required value={f.title} onChange={set('title')} error={errors.title} placeholder={matric ? `${board === 'cbse' ? 'CBSE' : 'Matriculation'} Mathematics — ${levelLabel(board, 9)}` : 'Cambridge IGCSE Mathematics'} maxLength={160} />
+        <TextField label="Title" required value={f.title} onChange={set('title')} error={errors.title} placeholder={matric ? `${board === 'matriculation' ? 'Matriculation' : info.short} Mathematics — ${levelLabel(board, 9)}` : 'Cambridge IGCSE Mathematics'} maxLength={160} />
         <TextField label={matric ? 'Textbook edition / exam' : 'Exam series years'} value={f.examSeriesYears} onChange={set('examSeriesYears')} error={errors.examSeriesYears} placeholder={matric ? '2026-27 edition' : '2025-2027'} maxLength={40} />
         <TextField label="Stage" value={f.stage} onChange={set('stage')} maxLength={40} />
         <TextField label="Awarding body" value={f.awardingBody} onChange={set('awardingBody')} maxLength={80} />

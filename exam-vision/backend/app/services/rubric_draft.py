@@ -8,7 +8,8 @@ from __future__ import annotations
 from ..ai_config import AIConfig
 from ..models import Exam, Question
 from ..providers.base import ProviderError
-from ..providers.claude_common import call_structured, make_client
+from ..providers.llm import call_structured, make_client
+from . import boards
 from .scoring import increments_ok
 
 SYSTEM = """You write marking rubrics for school examinations.
@@ -44,12 +45,15 @@ def draft(cfg: AIConfig, exam: Exam, q: Question, client=None, answer_key: str |
     ``answer_key``: the school's own answer for the question (from an uploaded key); the rubric follows it."""
     client = client or make_client(cfg)
     prompt = (f"Subject: {exam.subject}. Class: {exam.class_name} {exam.grade_level}".strip()
+              + (f"\nBoard: {boards.label(exam.board)}. Write the criteria in this board's mark-scheme style: "
+                 f"{boards.marking_guidance(exam.board)}" if boards.marking_guidance(exam.board) else "")
+              + (f"\n{boards.syllabus_brief(exam)}" if boards.syllabus_brief(exam) else "")
               + f"\nQuestion {q.number} ({q.qtype}): {q.text}\nMaximum marks: {q.max_marks:g}; "
               f"mark step: {q.mark_increment:g}"
               + (f"\nExpected final answer: {q.numeric_answer} {q.unit or ''}" if q.numeric_answer else "")
               + (f"\nThe teacher's answer key for this question: {answer_key}\n"
                  "Base the model answer and the criteria on this key." if answer_key else ""))
-    data, _usage, _model = call_structured(client, cfg, model=cfg.claude_eval_model, system=SYSTEM, schema=SCHEMA,
+    data, _usage, _model = call_structured(client, cfg, model=cfg.eval_model, system=SYSTEM, schema=SCHEMA,
                                            content=[{"type": "text", "text": prompt}], max_tokens=4000)
     criteria = [c for c in data.get("criteria") or [] if c.get("name") and float(c.get("max_marks") or 0) > 0]
     if not criteria:

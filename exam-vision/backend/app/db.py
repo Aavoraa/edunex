@@ -93,7 +93,23 @@ def _v4(conn) -> None:
     conn.execute(text(f"CREATE UNIQUE INDEX IF NOT EXISTS ux_jobs_one_active ON {jobs} (submission_id) WHERE {active}"))
 
 
-MIGRATIONS: list[Callable] = [_v1, _v2, _v3, _v4]
+def _v5(conn) -> None:
+    # the examination board an exam follows (IGCSE, CBSE, ...): its marking conventions
+    cols = [r[1] for r in conn.execute(text("PRAGMA table_info(exams)"))]
+    if "board" not in cols:
+        conn.execute(text("ALTER TABLE exams ADD COLUMN board VARCHAR(20) NOT NULL DEFAULT ''"))
+
+
+def _v6(conn) -> None:
+    # the syllabus, paper and tier an exam follows, with a summary of the syllabus for the AI
+    cols = [r[1] for r in conn.execute(text("PRAGMA table_info(exams)"))]
+    for name, kind in (("syllabus_id", "VARCHAR(36)"), ("syllabus_title", "VARCHAR(200)"), ("component_id", "VARCHAR(36)"),
+                       ("component_name", "VARCHAR(120)"), ("tier", "VARCHAR(20)"), ("syllabus_context", "TEXT")):
+        if name not in cols:
+            conn.execute(text(f"ALTER TABLE exams ADD COLUMN {name} {kind} NOT NULL DEFAULT ''"))
+
+
+MIGRATIONS: list[Callable] = [_v1, _v2, _v3, _v4, _v5, _v6]
 
 
 def migrate(eng: Engine) -> int:

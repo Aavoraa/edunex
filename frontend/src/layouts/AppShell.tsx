@@ -71,7 +71,8 @@ export function AppShell() {
   useEffect(() => {
     const meta = routeMeta(location.pathname);
     const extra: Record<string, string> = { '/account': 'My account', '/help': 'Help' };
-    const name = meta ? t(meta.label) : extra[location.pathname];
+    // Paper Correction's exams, sheets and settings sit under its board menus, not one entry of their own.
+    const name = meta ? t(meta.label) : extra[location.pathname] ?? (location.pathname.startsWith('/paper-correction') ? t('Paper Correction') : undefined);
     document.title = name ? `${name} · Edunex Smart School 360` : 'Edunex Smart School 360';
   }, [location.pathname, t]);
 

@@ -1,7 +1,7 @@
 # backend/app/providers/claude_vision.py
-"""Claude reads a whole answer sheet in one request.
+"""The chosen AI (Claude, OpenAI or Gemini) reads a whole answer sheet in one request.
 
-All pages go in together with the exam's question list, so Claude can follow answers across
+All pages go in together with the exam's question list, so the AI can follow answers across
 pages, recognise topic headings and unnumbered answers, and return each answer already matched
 to its question, plus a page-by-page transcription for the teacher.
 """
@@ -13,12 +13,11 @@ import io
 import re
 import time
 
-import anthropic
 from PIL import Image
 
 from ..ai_config import AIConfig
 from .base import ILLEGIBLE, HealthResult, PageText, ProviderError, SheetReading
-from .claude_common import call_structured, make_client
+from .llm import call_structured, check_model, make_client
 
 MAX_EDGE = 2000
 
@@ -85,16 +84,15 @@ def _jpeg_b64(image: bytes) -> str:
     return base64.standard_b64encode(buf.getvalue()).decode()
 
 
-class ClaudeReader:
-    name = "claude"
-
-    def __init__(self, cfg: AIConfig, client: anthropic.Anthropic | None = None):
-        ok, why = cfg.claude_vision_ready()
+class SheetReader:
+    def __init__(self, cfg: AIConfig, client=None):
+        ok, why = cfg.vision_ready()
         if not ok:
             raise ProviderError(why, "not_configured")
         self.cfg = cfg
+        self.name = cfg.provider
         self.client = client or make_client(cfg)
-        self.model: str | None = cfg.claude_vision_model
+        self.model: str | None = cfg.vision_model
 
     def read_sheet(self, images: list[bytes], questions: list[dict]) -> SheetReading:
         """``questions``: [{"number": "1", "text": "..."}] in exam order."""
@@ -109,14 +107,14 @@ class ClaudeReader:
         content.append({"type": "text", "text": f"The exam's questions:\n{listing}\n\n"
                         "Transcribe every page, then give each question's answer."})
         data, usage, model = call_structured(
-            self.client, self.cfg, model=self.cfg.claude_vision_model, system=SYSTEM,
+            self.client, self.cfg, model=self.cfg.vision_model, system=SYSTEM,
             schema=schema(numbers), content=content, max_tokens=32000, stream=True)
         self.model = model
 
         pages = []
         by_no = {int(p.get("page_no", 0)): p for p in data.get("pages") or []}
         for no in range(1, len(images) + 1):
-            p = by_no.get(no, {"text": "", "blank": True, "warnings": ["Claude returned no text for this page"]})
+            p = by_no.get(no, {"text": "", "blank": True, "warnings": ["The AI returned no text for this page"]})
             text = p.get("text") or ""
             warnings = list(p.get("warnings") or [])
             if ILLEGIBLE in text:
@@ -146,19 +144,5 @@ class ClaudeReader:
             usage=usage, duration_ms=int((time.perf_counter() - started) * 1000))
 
     def health_check(self) -> HealthResult:
-        """Checks the key and that the configured model exists and accepts images."""
-        started = time.perf_counter()
-        try:
-            info = self.client.models.retrieve(self.cfg.claude_vision_model)
-        except anthropic.AuthenticationError:
-            return HealthResult(False, self.name, self.model, "Claude rejected the API key.")
-        except anthropic.NotFoundError:
-            return HealthResult(False, self.name, self.model, f"model {self.cfg.claude_vision_model} not found")
-        except anthropic.APIError as exc:
-            return HealthResult(False, self.name, self.model, f"Claude API error: {exc.__class__.__name__}")
-        caps = getattr(info, "capabilities", None)
-        vision = getattr(caps, "image_input", None) if caps is not None else None
-        if vision is not None and not getattr(vision, "supported", True):
-            return HealthResult(False, self.name, info.id, "this model does not accept images")
-        return HealthResult(True, self.name, info.id, f"{info.display_name} available",
-                            int((time.perf_counter() - started) * 1000))
+        """Checks the key and that the configured model exists (and accepts images)."""
+        return check_model(self.client, self.cfg, self.cfg.vision_model, images=True)

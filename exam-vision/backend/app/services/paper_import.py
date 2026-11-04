@@ -13,7 +13,8 @@ import re
 from ..ai_config import AIConfig
 from ..models import QUESTION_TYPES, Exam
 from ..providers.base import ProviderError
-from ..providers.claude_common import call_structured, make_client
+from ..providers.llm import call_structured, make_client
+from . import boards
 from ..providers.claude_vision import _jpeg_b64
 
 SYSTEM = """You read photographs or scans of school question papers (printed or handwritten).
@@ -62,7 +63,7 @@ def _number(raw: str, fallback: int) -> str:
 def read_paper(cfg: AIConfig, images: list[bytes], exam: Exam, client=None) -> dict:
     """Returns {"questions": [{number, text, max_marks|None, qtype, answer_key|None}], "answer_key_found",
     "warnings", "usage", "model"}. Raises ProviderError."""
-    ok, why = cfg.claude_vision_ready()
+    ok, why = cfg.vision_ready()
     if not ok:
         raise ProviderError(why, "not_configured")
     client = client or make_client(cfg)
@@ -70,9 +71,11 @@ def read_paper(cfg: AIConfig, images: list[bytes], exam: Exam, client=None) -> d
     for no, image in enumerate(images, start=1):
         content.append({"type": "text", "text": f"Page {no} of {len(images)}:"})
         content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": _jpeg_b64(image)}})
+    if boards.syllabus_brief(exam):
+        content.append({"type": "text", "text": boards.syllabus_brief(exam)})
     content.append({"type": "text", "text": f"Subject: {exam.subject}. Class: {exam.class_name}. "
                                             "List the questions on this paper, with the answer key if one is included."})
-    data, usage, model = call_structured(client, cfg, model=cfg.claude_vision_model, system=SYSTEM, schema=SCHEMA,
+    data, usage, model = call_structured(client, cfg, model=cfg.vision_model, system=SYSTEM, schema=SCHEMA,
                                          content=content, max_tokens=16000, stream=True)
     questions, seen = [], set()
     for i, q in enumerate(data.get("questions") or [], start=1):

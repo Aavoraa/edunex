@@ -232,7 +232,7 @@ export default function OwnerOverviewPage() {
 
   const ex = sc?.exceptions;
   const exceptions = ex ? [
-    { label: 'Academic delays', icon: 'book', tone: 'warning', to: '/assessments', count: ex.marksLate + ex.plansWaiting,
+    { label: 'Academic delays', icon: 'book', tone: 'warning', to: '/subjects?tab=assessments', count: ex.marksLate + ex.plansWaiting,
       badge: String(ex.marksLate + ex.plansWaiting),
       detail: `${ex.marksLate} assessment${ex.marksLate === 1 ? '' : 's'} not finalised a week after the exam · ${ex.plansWaiting} lesson plan${ex.plansWaiting === 1 ? '' : 's'} waiting over a week` },
     { label: 'Safety issues', icon: 'shield', tone: 'critical', to: '/safeguarding', count: ex.safetyOpen, badge: String(ex.safetyOpen),

@@ -1,7 +1,7 @@
 # backend/app/providers/base.py
 """Results shared by the reader and the rest of the system.
 
-Fields Claude does not supply (OCR confidence, word coordinates) are ``None``; they are
+Fields the AI does not supply (OCR confidence, word coordinates) are ``None``; they are
 never invented.
 """
 
@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass, field
 
 
 class ProviderError(RuntimeError):
-    """A Claude call failed. ``kind``: not_configured|auth|unavailable|timeout|rate_limited|refused|bad_response."""
+    """An AI provider call failed. ``kind``: not_configured|auth|unavailable|timeout|rate_limited|refused|bad_response."""
 
     def __init__(self, message: str, kind: str = "unavailable", retryable: bool = False):
         super().__init__(message)
@@ -25,7 +25,7 @@ class PageText:
     text: str
     warnings: list[str] = field(default_factory=list)
     uncertain: list[str] = field(default_factory=list)
-    confidence: float | None = None  # Claude reports none
+    confidence: float | None = None  # no provider reports one
     blank: bool = False
 
     def to_dict(self) -> dict:
@@ -34,7 +34,7 @@ class PageText:
 
 @dataclass
 class SheetReading:
-    """Claude's reading of a whole answer sheet."""
+    """The AI's reading of a whole answer sheet."""
 
     model: str | None
     pages: list[PageText]

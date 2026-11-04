@@ -181,7 +181,7 @@ export default function TeacherDashboardPage() {
       <DashLayout rail={<DashRail actions={[
         { label: 'Mark Attendance', icon: 'checkSquare', to: '/attendance' },
         { label: 'Homework', icon: 'edit', to: '/homework', show: can('academics.read') },
-        { label: 'Enter Marks', icon: 'clipboard', to: '/assessments', show: can('academics.read') },
+        { label: 'Enter Marks', icon: 'clipboard', to: '/subjects?tab=assessments', show: can('academics.read') },
         { label: 'Lesson Plans', icon: 'bookOpen', to: '/lesson-plans', show: can('academics.read') },
         { label: 'Timetable', icon: 'calendar', to: '/timetable', show: can('academics.read') },
         { label: 'Message Parents', icon: 'message', to: '/parent-communication', show: can('communication.read') },
@@ -190,7 +190,7 @@ export default function TeacherDashboardPage() {
       <Grid cols="g-4col">
         <Kpi icon="checkSquare" label="Attendance to mark" value={k.toMark} tone={k.toMark ? 'critical' : 'teal'}
           foot={k.toMark ? k.toMarkNames.join(' and ') : 'All registers up to date'} to={markTo} />
-        <Kpi icon="clipboard" label="Marks pending" value={k.marksPending} tone={k.marksPending ? 'amber' : 'teal'} foot={k.marksPendingFoot ?? 'Nothing waiting'} to="/assessments" />
+        <Kpi icon="clipboard" label="Marks pending" value={k.marksPending} tone={k.marksPending ? 'amber' : 'teal'} foot={k.marksPendingFoot ?? 'Nothing waiting'} to="/subjects?tab=assessments" />
         <Kpi icon="alert" label="Students to watch" value={k.watch} tone="info" foot="Open Early Warning signals" to={can('earlywarning.read') ? '/early-warning' : undefined} />
         <Kpi icon="users" label="My classes" value={k.classes} foot={`${plural(k.students, 'student')} in total`} to="/classes" />
       </Grid>

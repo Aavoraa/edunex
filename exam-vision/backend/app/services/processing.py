@@ -59,7 +59,7 @@ def run_extraction(db: Session, submission_id: str, *, user_id: str | None, make
     try:
         reader = providers.reader(cfg)
         extraction.model = reader.model
-        say(f"Claude is reading {len(sub.pages)} page(s)")
+        say(f"the AI is reading {len(sub.pages)} page(s)")
         images = [_page_bytes(db, p, cfg.redact_top_percent) for p in sub.pages]
         result = reader.read_sheet(images, [{"number": q.number, "text": q.text} for q in exam.questions])
     except ProviderError as exc:
@@ -177,7 +177,8 @@ def question_dict(q: Question) -> dict:
 
 def exam_dict(exam: Exam) -> dict:
     return {"subject": exam.subject, "class_name": exam.class_name, "grade_level": exam.grade_level,
-            "instructions": exam.instructions}
+            "instructions": exam.instructions, "board": exam.board, "syllabus_title": exam.syllabus_title,
+            "component_name": exam.component_name, "tier": exam.tier, "syllabus_context": exam.syllabus_context}
 
 
 def rubric_problems(rubric: dict | None, q: Question) -> list[str]:

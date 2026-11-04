@@ -212,7 +212,7 @@ r.get('/lookups', any, async (req: Request, res: Response) => {
                     FROM classes c
                     LEFT JOIN sections s ON s.class_id = c.id AND s.academic_year_id = (SELECT id FROM academic_years WHERE is_current)
                    GROUP BY c.id ORDER BY c.campus_id, c.grade_level`) : [],
-    staff ? many(`SELECT id, code, name, stage FROM subjects ORDER BY name`) : [],
+    staff ? many(`SELECT id, code, name, stage, category FROM subjects ORDER BY name`) : [],
     staff ? many(`SELECT DISTINCT house FROM students WHERE house IS NOT NULL ORDER BY house`).then((x) => x.map((h) => h.house)) : [],
   ]);
   const data: Record<string, unknown> = { campuses, academicYears, classes, subjects, houses };

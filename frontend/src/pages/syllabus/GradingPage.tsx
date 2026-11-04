@@ -49,7 +49,7 @@ export default function GradingPage({ only }: { only?: Board } = {}) {
         sub={only === 'igcse'
           ? 'Classes on the Cambridge IGCSE board report every mark on the letters A* to G, with U (ungraded) below G.'
           : only
-          ? `Classes on the ${info.label} board, their ${info.range} grade scale and pass mark (${info.passMark}%). Every mark in these classes is reported on these letters.`
+          ? `Classes on the ${info.label} board, their ${info.range} grade scale${info.passMark != null ? ` and pass mark (${info.passMark}%)` : ''}. Every mark in these classes is reported on these ${board === 'ib' ? 'grades' : 'letters'}.`
           : `Each class follows a board — ${BOARDS.map((b) => `${b.label} (${b.range})`).join(', ')} — and every mark is reported on that board’s letters.`}
         actions={<>
           <Button icon="graduation" to={info.routes.syllabus}>{info.menu} syllabus</Button>
@@ -65,7 +65,7 @@ export default function GradingPage({ only }: { only?: Board } = {}) {
         <Banner tone="warning" icon="alert">
           {scale.note ?? (igcse
             ? 'Cambridge International publishes component grade thresholds for each exam series; these percentage boundaries are the school’s defaults.'
-            : `Indicative school boundaries for ${info.label}; the pass mark is ${info.passMark}%.`)}
+            : `Indicative school boundaries for ${info.label}${info.passMark != null ? `; the pass mark is ${info.passMark}%` : ''}.`)}
           {scale.updatedAt && <> Last changed {fmt.relative(scale.updatedAt)}{scale.updatedBy ? ` by ${scale.updatedBy}` : ''}.</>}
         </Banner>
       </div>
@@ -114,6 +114,16 @@ export default function GradingPage({ only }: { only?: Board } = {}) {
                 Each student’s tier is recorded on the <Link to="/syllabus">IGCSE Syllabus</Link> entries tab; an assessment linked to a Core or Extended paper is graded on that paper’s tier.
               </p>
             </Card>
+          ) : board === 'ib' ? (
+            <Card icon="layers" title="Diploma points" sub="How IB DP grades become the diploma">
+              <ul className="t-sm col g-2" style={{ paddingLeft: 18, margin: 0 }}>
+                <li>Each of the six subjects is graded <strong>7</strong> (excellent) to <strong>1</strong> (very poor), at SL or HL.</li>
+                <li>Theory of knowledge and the extended essay are graded A–E and add up to <strong>3 core points</strong>, so the maximum is 45.</li>
+                <li>A diploma needs <strong>24 points</strong>, no subject below 2, at most two 2s and at most three grades of 3 or below, plus CAS.</li>
+                <li>The IB sets grade boundaries per subject and session; these percentages are the school’s indicative boundaries for internal assessments.</li>
+                <li>Only papers from IB syllabuses can be linked to assessments of an IB class.</li>
+              </ul>
+            </Card>
           ) : (
             <Card icon="layers" title="Pass mark and bands" sub={`${info.label} has no Core / Extended tiers`}>
               <ul className="t-sm col g-2" style={{ paddingLeft: 18, margin: 0 }}>
@@ -121,9 +131,11 @@ export default function GradingPage({ only }: { only?: Board } = {}) {
                 <li>{failing.map((b, i) => (
                   <span key={b.grade}><strong>{b.grade}</strong>{i < failing.length - 2 ? ', ' : i === failing.length - 2 ? ' and ' : ''}</span>
                 ))} {failing.length === 1 ? 'is below the pass mark and starts at 0%.' : `are below the pass mark; ${lowest} is the lowest band and starts at 0%.`}</li>
-                <li>Grade points run from 10 (A1) to 4 (D){board === 'matriculation' ? ', in the style of continuous and comprehensive evaluation (CCE)' : ''}.</li>
+                <li>Grade points run from {bands[0]?.points ?? 10} ({bands[0]?.grade ?? 'A1'}) to {bands.find((b) => b.grade === 'D')?.points ?? 4} (D){board === 'matriculation' ? ', in the style of continuous and comprehensive evaluation (CCE)' : ''}.</li>
                 {board === 'cbse' && <li>For Class X and XII board examinations CBSE awards grades by rank; these bands are for school assessments.</li>}
-                <li>Only papers from {info.label} syllabuses can be linked to assessments of a {info.short} class.</li>
+                {board === 'icse' && <li>CISCE reports ICSE examination results as marks (33% needed in each subject and in aggregate); these letters are for school assessments.</li>}
+                {board === 'nios' && <li>NIOS reports results as marks: 33% passes a subject (theory and practical where applicable), five subjects including one or two languages are needed, and tutor-marked assignments (TMAs) carry about 20%. These letters are for school assessments.</li>}
+                <li>Only papers from {info.label} syllabuses can be linked to assessments of {/^[AEIOU]/.test(info.short) ? 'an' : 'a'} {info.short} class.</li>
               </ul>
             </Card>
           )}
@@ -180,7 +192,7 @@ function ClassBoards({ data, only, loading, error, onRetry, canManage }: { data?
           columns={[
             { key: 'name', label: 'Class', render: (r) => <><span className="t-bold">{r.name}</span><div className="t-micro t-muted">{r.campus} · {r.sections} section{r.sections === 1 ? '' : 's'}</div></> },
             { key: 'students', label: 'Students', className: 'num', render: (r) => <span className="t-num">{r.students}</span> },
-            { key: 'board', label: 'Board', render: (r) => <Badge tone={r.board === 'igcse' ? 'info' : r.board === 'cbse' ? 'warning' : 'success'}>{boardLabel(r.board, true)}</Badge> },
+            { key: 'board', label: 'Board', render: (r) => <Badge tone={({ igcse: 'info', matriculation: 'success', cbse: 'warning', icse: 'neutral', nios: 'critical', ib: 'info' } as Record<string, string>)[r.board] ?? 'neutral'}>{boardLabel(r.board, true)}</Badge> },
             ...(canManage ? [{
               key: 'act', label: '', render: (r: BoardClass) => (
                 <select className="select" style={{ width: 'auto', minWidth: 150 }} aria-label={`Move ${r.name} (${r.campus}) to another board`} value=""
@@ -311,7 +323,11 @@ function BoundaryForm({ scale, onClose }: { scale: GradeScale; onClose: () => vo
       foot={<><Button onClick={onClose} disabled={save.isPending}>Cancel</Button><Button variant="primary" onClick={submit} loading={save.isPending}>Save boundaries</Button></>}>
       <Banner tone="neutral" icon="info">
         Set each grade’s minimum percentage. Each grade must start below the one above it, and {last} starts at 0%.
-        {tiered ? ' Check the thresholds Cambridge publishes for the exam series you are preparing for.' : ` Keep D at the pass mark the school follows (${boardInfo(scale.board).passMark}% for ${boardInfo(scale.board).short}).`}
+        {tiered
+          ? ' Check the thresholds Cambridge publishes for the exam series you are preparing for.'
+          : boardInfo(scale.board).passMark != null
+          ? ` Keep D at the pass mark the school follows (${boardInfo(scale.board).passMark}% for ${boardInfo(scale.board).short}).`
+          : ' The IB publishes grade boundaries for each subject after each session; use them as a guide.'}
       </Banner>
       {save.error && !Object.keys(fieldErrors(save.error)).length && <div className="mt-3"><InlineError error={save.error} /></div>}
       <div className="mt-3">

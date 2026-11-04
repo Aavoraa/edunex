@@ -12,3 +12,15 @@ export function MatriculationAssessmentsPage() {
 export function CbseAssessmentsPage() {
   return <AssessmentsPage board="cbse" />;
 }
+
+export function IcseAssessmentsPage() {
+  return <AssessmentsPage board="icse" />;
+}
+
+export function NiosAssessmentsPage() {
+  return <AssessmentsPage board="nios" />;
+}
+
+export function IbAssessmentsPage() {
+  return <AssessmentsPage board="ib" />;
+}

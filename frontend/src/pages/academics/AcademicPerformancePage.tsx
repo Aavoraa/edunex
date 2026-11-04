@@ -99,7 +99,7 @@ export default function AcademicPerformancePage() {
                       <AlertItem key={m.title} tone={tone} icon={m.delta >= 0 ? 'trending' : 'alert'}
                         title={`${m.title} · ${m.delta > 0 ? '+' : ''}${m.delta}`}
                         meta={`${m.students} students · average ${m.previous} → ${m.current}`}
-                        to={can('academics.read') ? '/assessments' : undefined} />
+                        to={can('academics.read') ? '/subjects?tab=assessments' : undefined} />
                     );
                   })}
                 </div>

@@ -189,6 +189,28 @@ Things to try:
                      Vadavalli Grades 6-9 are Matriculation (AS-3302, AS-3303)
                      and Pollachi Grades 6-9 are CBSE (AS-3304, AS-3305) —
                      choose that campus to see their assessments.
+                     Matric / CBSE Syllabus -> "Matriculation catalogue" (every
+                     TN State Board textbook, Std 1-12, from tnschools.gov.in)
+                     and "CBSE catalogue" (CBSE curriculum 2026-27, Classes
+                     IX-XII, from cbseacademic.nic.in): official PDFs by
+                     standard/class, and "Add" to put a subject in the school.
+                     Sources: database/data/*.csv (migration 128).
+                     ICSE (CISCE) is the fourth board: ICSE Learning Outcomes,
+                     Syllabus, Grading (A+ to E, D from 33% a pass) and
+                     Assessments, plus an "ICSE catalogue" of the ICSE 2027
+                     subjects linking to cisce.org (migration 130). Demo:
+                     Vadavalli Grades 1-5 are ICSE (AS-3309, AS-3310).
+                     NIOS is the fifth board: NIOS Learning Outcomes, Syllabus,
+                     Grading (A to E in division bands, D from 33% a pass) and
+                     Assessments, plus a "NIOS catalogue" of Secondary and
+                     Senior Secondary courses linking to nios.ac.in (migration
+                     131). NIOS has no demo classes; assign it with "Move to".
+                     IB Diploma Programme is the sixth board: IB Learning
+                     Outcomes, Syllabus (two-year DP courses), Grading (7 to 1;
+                     a diploma needs 24 of 45 points) and Assessments, plus an
+                     "IB catalogue" of the DP subject groups and core, linking
+                     to ibo.org (migration 132). Demo: Guduvanchery Grades
+                     11-12 are IB (AS-3313, AS-3314).
   Admission forms    Office -> Applications -> New application, or a lead ->
                      "Add admission form": type the filled form in, upload the
                      scanned form (PDF/photo), or both. "Import forms" takes a CSV.
@@ -291,9 +313,12 @@ F. PAPER CORRECTION (AI marking of answer sheets - exam-vision\)
 
   "npm run dev" then starts it with the API and website ([exam] lines).
 
-  Claude key: sign in as Super Admin -> Paper Correction -> AI configuration.
-  Enter the key, acknowledge sending pages to Anthropic, Save, then
-  "Read a sample page". Without a key, sheets can be uploaded but not read.
+  AI provider and key: sign in as Super Admin -> Paper Correction -> AI
+  configuration. Choose the provider - Claude (Anthropic), ChatGPT (OpenAI)
+  or Gemini (Google) - enter its API key, acknowledge sending pages to that
+  company, Save, then "Read a sample page". Each provider keeps its own key
+  and models; only the chosen one is used. Without a key, sheets can be
+  uploaded but not read.
 
   Try it: Principal -> Paper Correction -> New examination (class, section,
   subject) -> Questions & rubrics -> add questions, "Draft with AI" rubrics

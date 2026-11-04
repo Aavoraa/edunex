@@ -192,7 +192,7 @@ export async function updateSection(req: Request, id: string, input: { classTeac
 export async function listSubjects(campusId?: string) {
   const p: unknown[] = [campusId ?? null];
   return many(
-    `SELECT sub.id, sub.code, sub.name, sub.stage, sub.is_core AS "isCore",
+    `SELECT sub.id, sub.code, sub.name, sub.stage, sub.category, sub.is_core AS "isCore",
             (SELECT count(DISTINCT ta.employee_id)::int FROM teacher_assignments ta JOIN sections sec ON sec.id = ta.section_id JOIN classes c ON c.id = sec.class_id
               WHERE ta.subject_id = sub.id AND ($1::uuid IS NULL OR c.campus_id = $1)
                 AND ta.academic_year_id = (SELECT id FROM academic_years WHERE is_current)) AS teachers,

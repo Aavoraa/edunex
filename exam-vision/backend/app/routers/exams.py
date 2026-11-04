@@ -7,7 +7,7 @@ import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -19,7 +19,7 @@ from ..models import (
 from ..security import ManagerUser, StaffUser, audit, can_manage, exam_for_user
 from ..providers.base import ProviderError
 from ..config import settings
-from ..services import jobs, paper_import, rubric_draft
+from ..services import boards, jobs, paper_import, rubric_draft
 from ..services.documents import DocumentError, load_pages, to_png
 from ..services.processing import rubric_dict, rubric_problems, submission_total
 from ..services.scoring import increments_ok
@@ -35,6 +35,9 @@ def exam_out(db: Session, e: Exam) -> dict:
     return {
         "id": e.id, "name": e.name, "academic_year": e.academic_year, "class_name": e.class_name,
         "section": e.section, "subject": e.subject, "grade_level": e.grade_level, "instructions": e.instructions,
+        "board": e.board, "board_label": boards.label(e.board),
+        "syllabus_id": e.syllabus_id, "syllabus_title": e.syllabus_title, "component_id": e.component_id,
+        "component_name": e.component_name, "tier": e.tier, "syllabus_context": e.syllabus_context,
         "results_status": e.results_status,
         "maximum": sum(q.max_marks for q in e.questions), "question_count": len(e.questions),
         "teachers": [{"id": t.id, "name": t.name} for t in teachers],
@@ -55,7 +58,21 @@ class ExamIn(BaseModel):
     section: str = ""
     subject: str = Field(min_length=1, max_length=60)
     grade_level: str = ""
+    board: str = ""
+    syllabus_id: str = Field("", max_length=36)
+    syllabus_title: str = Field("", max_length=200)
+    component_id: str = Field("", max_length=36)
+    component_name: str = Field("", max_length=120)
+    tier: str = Field("", max_length=20)
+    syllabus_context: str = Field("", max_length=6000)
     instructions: str = ""
+
+    @field_validator("board")
+    @classmethod
+    def known_board(cls, v: str) -> str:
+        if v and v not in boards.BOARDS:
+            raise ValueError("unknown examination board")
+        return v
 
 
 @router.get("/exams")

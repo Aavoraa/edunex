@@ -8,11 +8,12 @@ import {
 } from '@/components/ui';
 import { errorMessage } from '@/components/ui/states';
 import { fmt } from '@/lib/format';
+import { boardInfo, gradeFor, gradeTone, useGradeScale } from '@/lib/grades';
 import { ExamModal } from './ExamsPage';
 import { useAuth } from '@/auth/AuthContext';
 import { AwaitingSuperAdmin } from '../planning/AwaitingSuperAdmin';
 import {
-  AiNotReady, BASE, EV, EvStatus, isBusy, marks, Connecting, NotConnected, QTYPES, usePcStatus,
+  AiNotReady, BASE, EV, EvStatus, boardCrumb, isBusy, marks, Connecting, NotConnected, QTYPES, useBoardOf, usePcStatus,
   type AiStatus, type Criterion, type EvStudent, type Exam, type Question, type Rubric, type SheetRow,
 } from './shared';
 
@@ -36,6 +37,7 @@ export default function ExamPage() {
   const q = useApiQuery<Exam>(st.data?.connected ? `${EV}/exams/${id}` : null);
   const role = st.data?.role;
   const manager = role === 'admin' || role === 'coordinator';
+  const boardOf = useBoardOf();
   const step = useApiMutation<string, Exam>('post', (to) => `${EV}/exams/${id}/results/${to}`, {
     invalidate: ['/exam-correction'], success: (r) => `Results are now ${r.data.results_status}`, body: () => ({}),
   });
@@ -59,7 +61,7 @@ export default function ExamPage() {
 
   return (
     <Page>
-      <PageHead title={exam.name}
+      <PageHead title={exam.name} crumbs={[boardCrumb(boardOf(exam)), { label: exam.name }]}
         sub={`${exam.class_name}${exam.section ? ` · Section ${exam.section}` : ''} · ${exam.subject} · ${exam.question_count} questions · ${marks(exam.maximum)} marks · ${exam.academic_year}`}
         actions={<>
           <span className="row g-2"><span className="t-xs t-muted">Results</span><EvStatus value={exam.results_status} /></span>
@@ -131,7 +133,7 @@ function SheetsTab({ exam, ai }: { exam: Exam; ai?: AiStatus }) {
     <div className="col g-4">
       <AiNotReady ai={ai} />
       <Card icon="users" title={`${classLabel} — ${withSheet} of ${classStudents.length} answer sheets`} flush
-        sub={anyBusy ? 'Claude is working — this list refreshes by itself.' : 'Upload each student’s sheet from their row. Identity comes from the row, never from what the AI reads.'}>
+        sub={anyBusy ? 'The AI is working — this list refreshes by itself.' : 'Upload each student’s sheet from their row. Identity comes from the row, never from what the AI reads.'}>
         {subs.error || students.error ? <ErrorState error={subs.error ?? students.error} onRetry={() => { subs.refetch(); students.refetch(); }} /> : (
           <DataTable rows={rows} loading={subs.isLoading || students.isLoading} rowKey={(r) => r.id}
             onRowClick={(r) => (r.sheet ? navigate(`${BASE}/sheets/${r.sheet.id}`) : setUploadFor(r))}
@@ -220,7 +222,7 @@ function UploadSheetModal({ exam, row, ai, onClose }: { exam: Exam; row: RosterR
             onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
           <span className="hint">A PDF, or photos of the pages in order — up to 40 pages.</span>
         </div>
-        <Checkbox checked={auto} onChange={setAuto} label={`Read and mark automatically with Claude${ai ? ` (${ai.vision_model} / ${ai.eval_model})` : ''}`} />
+        <Checkbox checked={auto} onChange={setAuto} label={`Read and mark automatically with ${ai?.provider_label ?? 'AI'}${ai ? ` (${ai.vision_model} / ${ai.eval_model})` : ''}`} />
       </div>
     </Modal>
   );
@@ -244,7 +246,7 @@ function QuestionsTab({ exam, manager }: { exam: Exam; manager: boolean }) {
   const questions = exam.questions ?? [];
 
   const draftAll = async () => {
-    if (!(await confirm({ title: 'Draft missing rubrics with AI?', body: 'Claude drafts and saves a rubric for every question without one. Each is marked "AI draft" — review them before marking.', confirmLabel: 'Draft rubrics' }))) return;
+    if (!(await confirm({ title: 'Draft missing rubrics with AI?', body: 'The AI drafts and saves a rubric for every question without one. Each is marked "AI draft" — review them before marking.', confirmLabel: 'Draft rubrics' }))) return;
     setDrafting(true);
     try {
       const r = await api.postLong<{ saved: unknown[]; failed: { error: string }[] }>(`${EV}/exams/${exam.id}/rubrics/draft-all`, { only_missing: true });
@@ -267,7 +269,7 @@ function QuestionsTab({ exam, manager }: { exam: Exam; manager: boolean }) {
       </div>
       {questions.length === 0 ? (
         <Card><Empty icon="helpCircle" title="No questions yet"
-          sub={manager ? 'Upload the question paper — Claude reads the questions and drafts a rubric for each — or add questions one by one.' : 'The exam coordinator adds the questions.'}
+          sub={manager ? 'Upload the question paper — the AI reads the questions and drafts a rubric for each — or add questions one by one.' : 'The exam coordinator adds the questions.'}
           action={manager ? <Button variant="primary" icon="upload" onClick={() => setImporting(true)}>Upload question paper</Button> : undefined} /></Card>
       ) : questions.map((q) => (
         <Card key={q.id} title={<span className="row g-2 wrap"><span className="pc-qnum">Q{q.number}</span><Badge>{q.qtype}</Badge><Badge tone="navy">{marks(q.max_marks)} marks</Badge>
@@ -306,7 +308,7 @@ interface ImportResult {
   rubrics: { saved: string[]; failed: { question: string; error: string }[] }; default_marks_used: string[];
 }
 
-/** Upload the question paper (and answer key, if any): Claude reads the questions and drafts the rubrics. */
+/** Upload the question paper (and answer key, if any): the AI reads the questions and drafts the rubrics. */
 function ImportPaperModal({ exam, onClose }: { exam: Exam; onClose: () => void }) {
   const invalidate = useInvalidate();
   const [files, setFiles] = useState<File[]>([]);
@@ -329,7 +331,7 @@ function ImportPaperModal({ exam, onClose }: { exam: Exam; onClose: () => void }
   };
   return (
     <Modal open onClose={onClose} title="Upload question paper" size="wide" busy={busy}
-      sub="Claude reads the questions; an answer key in the same upload (e.g. a page headed Answers) is used for the rubrics."
+      sub="The AI reads the questions; an answer key in the same upload (e.g. a page headed Answers) is used for the rubrics."
       foot={result ? <Button variant="primary" onClick={onClose}>Review questions</Button> : <>
         <Button onClick={onClose} disabled={busy}>Cancel</Button>
         <Button variant="primary" icon="sparkle" loading={busy} onClick={submit}>Read paper{rubrics ? ' & draft rubrics' : ''}</Button>
@@ -361,7 +363,7 @@ function ImportPaperModal({ exam, onClose }: { exam: Exam; onClose: () => void }
               options={['1', '2', '3', '4', '5'].map((m) => ({ value: m, label: `${m} mark${m === '1' ? '' : 's'} per question` }))} />
             <div className="field"><span className="label">Rubrics</span><Checkbox checked={rubrics} onChange={setRubrics} label="Draft a rubric for each question with AI" /></div>
           </div>
-          {busy && <Banner tone="neutral" icon="clock">Claude is reading the paper{rubrics ? ' and drafting rubrics' : ''} — this takes about a minute.</Banner>}
+          {busy && <Banner tone="neutral" icon="clock">The AI is reading the paper{rubrics ? ' and drafting rubrics' : ''} — this takes about a minute.</Banner>}
         </div>
       )}
     </Modal>
@@ -552,6 +554,10 @@ interface Report {
 
 function ResultsTab({ exam }: { exam: Exam }) {
   const navigate = useNavigate();
+  const board = useBoardOf()(exam);
+  const { scale } = useGradeScale(board);
+  const info = boardInfo(board);
+  const tier = exam.tier === 'Core' || exam.tier === 'Extended' ? exam.tier : null;
   const q = useApiQuery<Report>(`${EV}/exams/${exam.id}/report`);
   const [pushing, setPushing] = useState(false);
   const ready = exam.results_status === 'approved' || exam.results_status === 'published';
@@ -581,6 +587,17 @@ function ResultsTab({ exam }: { exam: Exam }) {
             { key: 'name', label: 'Student', render: (x) => <><span className="t-bold">{x.name}</span><div className="t-micro t-muted">{x.admission_no}</div></> },
             { key: 'total', label: 'Total', className: 'num', render: (x) => <span className="t-num">{marks(x.total)} / {marks(x.maximum)}</span> },
             { key: 'pct', label: '%', className: 'num', render: (x) => <span className="t-num">{marks(x.percent)}</span> },
+            {
+              key: 'grade', label: `${info.short} grade${tier ? ` (${tier})` : ''}`, render: (x) => {
+                if (x.percent == null) return <span className="t-faint">—</span>;
+                const g = gradeFor(x.percent, { scale, tier });
+                return <Badge tone={gradeTone(g, scale)}>{g}</Badge>;
+              },
+            },
+            ...(info.passMark == null ? [] : [{
+              key: 'pass', label: `Pass (${info.passMark}%)`, render: (x: Report['students'][number]) => x.percent == null ? <span className="t-faint">—</span>
+                : x.percent >= info.passMark! ? <Badge tone="success">Pass</Badge> : <Badge tone="critical">Below pass</Badge>,
+            }]),
             { key: 'ok', label: 'Approved', render: (x) => x.approved ? <Badge tone="success">yes</Badge> : <Badge tone="warning">no</Badge> },
             { key: 'status', label: 'Status', render: (x) => <EvStatus value={x.status} /> },
           ]} />
@@ -613,7 +630,7 @@ function ResultsTab({ exam }: { exam: Exam }) {
         </Card>
         <Card icon="activity" title="Processing">
           <StatStrip items={[
-            { label: 'Claude readings', value: r.processing.runs }, { label: 'Failed', value: r.processing.failed },
+            { label: 'AI readings', value: r.processing.runs }, { label: 'Failed', value: r.processing.failed },
             { label: 'Avg per sheet', value: r.processing.average_seconds == null ? '—' : `${r.processing.average_seconds} s` },
             { label: 'Reading cost', value: `$${r.processing.cost_usd}` },
           ]} />
@@ -625,15 +642,23 @@ function ResultsTab({ exam }: { exam: Exam }) {
   );
 }
 
-interface AssessmentRow { id: string; code: string; name: string; status: string; heldOn: string; maxMarks: number; grade: string; subject: string; of: number; entered: number }
+interface AssessmentRow {
+  id: string; code: string; name: string; status: string; heldOn: string; maxMarks: number; grade: string; subject: string; of: number; entered: number;
+  syllabusComponentId: string | null; igcsePaper: string | null;
+}
 interface PushResult { sent: number; skipped: { admissionNo: string; name: string; reason: string }[]; scaledFrom: number | null; scaledTo: number; entered: number; of: number }
 
 function PushMarksModal({ exam, onClose }: { exam: Exam; onClose: () => void }) {
-  const list = usePagedQuery<AssessmentRow>('/academics/assessments', { pageSize: 200, sort: 'date', dir: 'desc' });
+  // Only the board's own assessments: the marks are graded on that board's scale. Same paper first, then same subject.
+  const board = useBoardOf()(exam);
+  const list = usePagedQuery<AssessmentRow>('/academics/assessments', { board, pageSize: 200, sort: 'date', dir: 'desc' });
   const [assessmentId, setAssessmentId] = useState('');
   const [result, setResult] = useState<PushResult | null>(null);
-  const open = useMemo(() => (list.data?.rows ?? []).filter((a) => a.status === 'Scheduled' || a.status === 'In Progress')
-    .sort((a, b) => Number(b.subject === exam.subject) - Number(a.subject === exam.subject)), [list.data, exam.subject]);
+  const rank = (a: AssessmentRow) => (exam.component_id && a.syllabusComponentId === exam.component_id ? 2 : 0) + Number(a.subject === exam.subject);
+  const open = useMemo(() => (list.data?.rows ?? [])
+    .filter((a) => (a.status === 'Scheduled' || a.status === 'In Progress')
+      && (!exam.component_id || !a.syllabusComponentId || a.syllabusComponentId === exam.component_id))
+    .sort((a, b) => rank(b) - rank(a)), [list.data, exam.subject, exam.component_id]); // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = open.find((a) => a.id === assessmentId);
   const push = useApiMutation<{ assessmentId: string }, PushResult>('post', `/exam-correction/exams/${exam.id}/push-marks`, {
     invalidate: ['/academics/assessments'], onSuccess: (r) => setResult(r.data),
@@ -655,14 +680,14 @@ function PushMarksModal({ exam, onClose }: { exam: Exam; onClose: () => void }) 
               <ul className="pc-list">{result.skipped.map((x) => <li key={x.admissionNo} className="t-sm">{x.name} ({x.admissionNo}) — {x.reason}</li>)}</ul>
             </Card>
           )}
-          <p className="t-sm">Review, moderate and complete the assessment in <Link to="/assessments">Assessments</Link>.</p>
+          <p className="t-sm">Review, moderate and complete the assessment in <Link to="/subjects?tab=assessments">Assessments</Link>.</p>
         </div>
       ) : (
         <div className="col g-3">
           <SelectField label="Assessment" required value={assessmentId} onChange={setAssessmentId}
             placeholder={list.isLoading ? 'Loading…' : open.length ? 'Choose an assessment…' : 'No open assessment — create one in Assessments'}
-            options={open.map((a) => ({ value: a.id, label: `${a.code} · ${a.name} — ${a.grade} ${a.subject} · out of ${a.maxMarks} · ${a.status}` }))}
-            hint="Scheduled and in-progress assessments you can enter marks for. Matching subjects are listed first." />
+            options={open.map((a) => ({ value: a.id, label: `${a.code} · ${a.name} — ${a.grade} ${a.subject}${a.syllabusComponentId && a.syllabusComponentId === exam.component_id ? ' · same paper' : ''} · out of ${a.maxMarks} · ${a.status}` }))}
+            hint={`Scheduled and in-progress ${boardInfo(board).label} assessments you can enter marks for${exam.component_id ? ', for this paper or not linked to a paper' : ''}. The same paper and subject are listed first.`} />
           {chosen && Number(chosen.maxMarks) !== exam.maximum && (
             <Banner tone="warning" icon="info">The assessment is out of {chosen.maxMarks}; this examination is out of {marks(exam.maximum)}. Totals are scaled proportionally.</Banner>
           )}
@@ -678,6 +703,7 @@ function PushMarksModal({ exam, onClose }: { exam: Exam; onClose: () => void }) 
 // Settings (coordinators)
 // ---------------------------------------------------------------------------
 function SetupTab({ exam }: { exam: Exam }) {
+  const board = useBoardOf()(exam);
   const users = useApiQuery<{ id: string; name: string; role: string; active: boolean }[]>(`${EV}/users`);
   const [editing, setEditing] = useState(false);
   const [picked, setPicked] = useState<Set<string> | null>(null);
@@ -692,7 +718,11 @@ function SetupTab({ exam }: { exam: Exam }) {
       <Card icon="clipboard" title="Examination details" actions={<Button size="sm" icon="edit" onClick={() => setEditing(true)}>Edit</Button>}>
         <Dl items={[
           ['Class', `${exam.class_name}${exam.section ? ` · Section ${exam.section}` : ''}`], ['Subject', exam.subject],
-          ['Academic year', exam.academic_year], ['Board / level', exam.grade_level || '—'], ['Instructions', exam.instructions || '—'],
+          ['Academic year', exam.academic_year],
+          ['Board', `${boardInfo(board).label} — marked the ${boardInfo(board).short} way, graded ${boardInfo(board).range}`],
+          ['Syllabus', exam.syllabus_title || 'Not linked — edit the examination to choose its syllabus'],
+          ['Paper', exam.component_name ? `${exam.component_name}${exam.tier && exam.tier !== 'All' ? ` (${exam.tier} tier)` : ''}` : '—'],
+          ['Grade level', exam.grade_level || '—'], ['Instructions', exam.instructions || '—'],
         ]} />
       </Card>
       <Card icon="users" title="Assigned teachers" sub="Teachers see and mark only the examinations assigned to them."

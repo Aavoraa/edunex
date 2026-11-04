@@ -19,7 +19,7 @@ FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 
 def make_client(cfg: AIConfig) -> anthropic.Anthropic:
-    ok, why = cfg.claude_ready()
+    ok, why = cfg.ai_ready()
     if not ok:
         raise ProviderError(why, "not_configured")
     return anthropic.Anthropic(api_key=cfg.claude_api_key, timeout=float(cfg.claude_timeout),

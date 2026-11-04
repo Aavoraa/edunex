@@ -6,7 +6,7 @@ import { badRequest, conflict, notFound } from '../utils/errors.js';
 import { audit } from './audit.service.js';
 import { authorizeSection, schoolToday, sectionScope } from './academics.service.js';
 import type { AuthUser } from '../types.js';
-import { isBoard } from './grading-shared.js';
+import { guessSubjectCategory, isBoard, type SubjectCategory } from './grading-shared.js';
 
 /**
  * Syllabuses per board: syllabus → components (papers) → topics, per-section
@@ -26,13 +26,16 @@ const IGCSE_CLASS = `(c.board = 'igcse' AND (c.grade_level IN (9, 10) OR c.stage
 /** Classes that follow a board's syllabuses. */
 const boardClass = (board: string) => (board === 'igcse' || !isBoard(board) ? IGCSE_CLASS : `(c.board = '${board}')`);
 const boardOf = (v: unknown) => (isBoard(v) ? v : 'igcse');
-const BOARD_NAME: Record<string, string> = { igcse: 'IGCSE', matriculation: 'Matriculation', cbse: 'CBSE' };
+const BOARD_NAME: Record<string, string> = { igcse: 'IGCSE', matriculation: 'Matriculation', cbse: 'CBSE', icse: 'ICSE', nios: 'NIOS', ib: 'IB' };
 
 /** Defaults for a new syllabus on each board. */
 const BOARD_DEFAULTS: Record<string, { stage: string; awardingBody: string; grading: string; gradeLevels: number[] }> = {
   igcse: { stage: 'IGCSE', awardingBody: 'Cambridge International', grading: 'A*-G', gradeLevels: [9, 10] },
   matriculation: { stage: 'Matriculation', awardingBody: 'Tamil Nadu State Board (Samacheer Kalvi)', grading: 'A1-E2', gradeLevels: [9] },
   cbse: { stage: 'CBSE', awardingBody: 'Central Board of Secondary Education (NCERT textbooks)', grading: 'A1-E', gradeLevels: [9] },
+  icse: { stage: 'ICSE', awardingBody: 'Council for the Indian School Certificate Examinations (CISCE)', grading: 'A+-E', gradeLevels: [9, 10] },
+  nios: { stage: 'NIOS', awardingBody: 'National Institute of Open Schooling (NIOS)', grading: 'A-E', gradeLevels: [11, 12] },
+  ib: { stage: 'IB DP', awardingBody: 'International Baccalaureate (IB)', grading: '7-1', gradeLevels: [11, 12] },
 };
 const CURRENT_YEAR = '(SELECT id FROM academic_years WHERE is_current)';
 
@@ -94,6 +97,146 @@ function boardSections(user: AuthUser, board = 'igcse') {
 const pg23505 = (e: unknown) => (e as { code?: string })?.code === '23505';
 
 // =============================================================================
+// Matriculation / CBSE board catalogue documents (migration 128)
+// =============================================================================
+interface BoardDoc { grade: number; label: string; url: string }
+const BOARD_CAT_COLS = `bc.id AS "bcId", bc.subject AS "bcSubject", bc.category AS "bcCategory", bc.documents AS "bcDocuments", bc.source_page AS "bcSource"`;
+const BOARD_CAT_JOIN = 'LEFT JOIN board_catalogue bc ON bc.id = sy.board_catalogue_id';
+/** Documents of a catalogue row grouped by grade (only the given grades when set). */
+function docsByGrade(docs: BoardDoc[], grades?: number[]) {
+  const byGrade = new Map<number, { label: string; url: string }[]>();
+  for (const d of docs) {
+    if (grades && !grades.includes(d.grade)) continue;
+    byGrade.set(d.grade, [...(byGrade.get(d.grade) ?? []), { label: d.label, url: d.url }]);
+  }
+  return [...byGrade.entries()].sort((a, b) => a[0] - b[0]).map(([grade, documents]) => ({ grade, documents }));
+}
+/** Replaces the raw board-catalogue columns with `catalogue` — the documents for the syllabus's grades. */
+function withBoardCatalogue<T extends Record<string, unknown>>(r: T) {
+  const { bcId, bcSubject, bcCategory, bcDocuments, bcSource, ...rest } = r as T & { bcId?: string | null; bcSubject?: string; bcCategory?: string; bcDocuments?: BoardDoc[]; bcSource?: string | null };
+  return {
+    ...rest,
+    catalogue: bcId ? { id: bcId, subject: bcSubject, category: bcCategory, sourcePage: bcSource ?? null, byGrade: docsByGrade(bcDocuments ?? [], rest.gradeLevels as number[]) } : null,
+  };
+}
+
+const BOARD_PREFIX: Record<string, string> = { matriculation: 'Matriculation', cbse: 'CBSE', icse: 'ICSE', nios: 'NIOS', ib: 'IB DP' };
+type CatalogueBoard = 'matriculation' | 'cbse' | 'icse' | 'nios' | 'ib';
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+/** "Std IX", "Classes XI–XII", "Std VI, VII" — how the board names the grades. */
+function levelsLabel(board: string, grades: number[]) {
+  // IB (an international programme) uses "Grade 11"; Matriculation "Std IX"; the other Indian boards "Class IX".
+  const word = board === 'matriculation' ? 'Std' : board === 'ib' ? 'Grade' : 'Class';
+  const n = (x: number) => (board === 'ib' ? String(x) : ROMAN[x]);
+  const g = [...grades].sort((a, b) => a - b);
+  if (g.length === 1) return `${word} ${n(g[0])}`;
+  const consecutive = g.every((x, i) => i === 0 || x === g[i - 1] + 1);
+  const plural = board === 'matriculation' ? 'Std' : board === 'ib' ? 'Grades' : 'Classes';
+  return consecutive ? `${plural} ${n(g[0])}–${n(g[g.length - 1])}` : `${plural} ${g.map(n).join(', ')}`;
+}
+
+/** Where each board catalogue comes from (migrations 128, 130). */
+const CATALOGUE_SOURCES: Record<CatalogueBoard, { name: string; short: string; url: string }> = {
+  matriculation: { name: 'Tamil Nadu SCERT textbooks — Department of School Education', short: 'Tamil Nadu State Board textbook', url: 'https://tnschools.gov.in/scert-textbook' },
+  cbse: { name: 'CBSE Curriculum for the Academic Year 2026-27', short: 'CBSE curriculum', url: 'https://cbseacademic.nic.in/curriculum_2027.html' },
+  icse: { name: 'CISCE Regulations and Syllabuses — ICSE 2027', short: 'CISCE ICSE syllabus', url: 'https://cisce.org/regulations-and-syllabus-icse-2027/' },
+  nios: { name: 'NIOS online course material — Secondary and Senior Secondary', short: 'NIOS course', url: 'https://www.nios.ac.in/online-course-material.aspx' },
+  ib: { name: 'IB Diploma Programme curriculum', short: 'IB Diploma Programme', url: 'https://www.ibo.org/programmes/diploma-programme/curriculum/' },
+};
+
+/** A board catalogue (Matriculation, CBSE or ICSE), with what the school already has. */
+export async function listBoardCatalogue(f: { board: CatalogueBoard; q?: string; grade?: number; category?: string }) {
+  const w = new Where().add('bc.board = ?', f.board);
+  if (f.q) w.add('bc.subject ILIKE ?', likeTerm(f.q));
+  w.addIf(f.grade, '? = ANY (bc.grade_levels)');
+  w.addIf(f.category, 'bc.category = ?');
+  const rows = await many<{ id: string; category: string; subject: string; gradeLevels: number[]; documents: BoardDoc[]; sourcePage: string | null; school: { id: string; title: string; gradeLevels: number[]; isActive: boolean }[]; schoolSubject: { id: string; name: string; category: string | null } | null }>(
+    `SELECT bc.id, bc.category, bc.subject, bc.grade_levels AS "gradeLevels", bc.documents, bc.source_page AS "sourcePage",
+            (SELECT json_build_object('id', s.id, 'name', s.name, 'category', s.category) FROM subjects s
+              WHERE lower(s.name) = lower(bc.subject) LIMIT 1) AS "schoolSubject",
+            COALESCE((SELECT json_agg(json_build_object('id', sy.id, 'title', sy.title, 'gradeLevels', sy.grade_levels, 'isActive', sy.is_active) ORDER BY sy.grade_levels)
+                        FROM syllabuses sy WHERE sy.board_catalogue_id = bc.id), '[]') AS school
+       FROM board_catalogue bc ${w.sql}
+      ORDER BY bc.sort_order`,
+    w.params,
+  );
+  const categories = (await many<{ category: string }>(
+    'SELECT category FROM board_catalogue WHERE board = $1 GROUP BY category ORDER BY min(sort_order)', [f.board],
+  )).map((r) => r.category);
+  return {
+    board: f.board,
+    categories,
+    source: CATALOGUE_SOURCES[f.board],
+    rows: rows.map(({ documents, ...r }) => ({
+      ...r,
+      byGrade: docsByGrade(documents, f.grade ? [f.grade] : undefined),
+      // General category to offer when adding it: the school subject's own, else a guess from the name.
+      suggestedCategory: (r.schoolSubject?.category as SubjectCategory | null) ?? guessSubjectCategory(r.subject, r.category),
+    })),
+  };
+}
+
+/**
+ * Adds a Matriculation / CBSE catalogue subject to the school, for one or more of
+ * its standards / classes (e.g. "CBSE Mathematics — Class IX"). The syllabus keeps
+ * a link to the catalogue row, so it shows the official documents for its grades.
+ */
+/**
+ * The school subject for a catalogue entry: the chosen one, else the subject with the
+ * same name, else a new subject named after the entry (e.g. "Tamil & English"), in the
+ * chosen general category.
+ */
+async function subjectForCatalogue(req: Request, cat: { board: string; subject: string; category: string }, category: SubjectCategory, subjectId?: string) {
+  if (subjectId) {
+    const s = await one<{ id: string; category: string | null }>('SELECT id, category FROM subjects WHERE id = $1', [subjectId]);
+    if (!s) throw badRequest('Subject not found', 'SUBJECT_NOT_FOUND', [{ field: 'subjectId', message: 'Choose a subject' }]);
+    if (!s.category) await query('UPDATE subjects SET category = $2 WHERE id = $1', [s.id, category]);
+    return s.id;
+  }
+  const same = await one<{ id: string; category: string | null }>('SELECT id, category FROM subjects WHERE lower(name) = lower($1) LIMIT 1', [cat.subject]);
+  if (same) {
+    if (!same.category) await query('UPDATE subjects SET category = $2 WHERE id = $1', [same.id, category]);
+    return same.id;
+  }
+  return tx(async (db) => {
+    // Code: initials of the words (TAE for "Tamil & English"), or the first letters of a one-word name; made unique.
+    const words = cat.subject.replace(/[^A-Za-z ]/g, ' ').split(/\s+/).filter(Boolean);
+    const base = (words.length > 1 ? words.map((w) => w[0]).join('') : (words[0] ?? 'SUB').slice(0, 3)).toUpperCase().slice(0, 5) || 'SUB';
+    const taken = new Set((await many<{ code: string }>('SELECT code FROM subjects WHERE code LIKE $1', [`${base}%`], db)).map((r) => r.code));
+    let code = base;
+    for (let n = 2; taken.has(code); n++) code = `${base}${n}`;
+    const core = ['Languages', 'Academic', 'Main subjects'].includes(cat.category);
+    const s = await one<{ id: string }>(
+      'INSERT INTO subjects (code, name, stage, is_core, category) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+      [code, cat.subject, BOARD_PREFIX[cat.board] ?? null, core, category], db,
+    );
+    await audit(req, { action: 'create', module: 'academics', description: `Added subject ${code} — ${cat.subject} (${category})`, entityType: 'subject', entityId: s!.id }, db);
+    return s!.id;
+  });
+}
+
+export async function addFromBoardCatalogue(req: Request, b: { board: CatalogueBoard; catalogueId: string; category: SubjectCategory; subjectId?: string; gradeLevels: number[] }) {
+  const cat = await one<{ id: string; board: string; subject: string; category: string; grade_levels: number[] }>(
+    'SELECT id, board, subject, category, grade_levels FROM board_catalogue WHERE id = $1', [b.catalogueId]);
+  if (!cat || cat.board !== b.board) throw notFound('That subject is not in the catalogue', 'CATALOGUE_ENTRY_NOT_FOUND');
+  const outside = b.gradeLevels.filter((g) => !cat.grade_levels.includes(g));
+  if (outside.length) {
+    throw badRequest(`${cat.subject} is not listed for ${levelsLabel(cat.board, outside)}`, 'VALIDATION_ERROR', [{ field: 'gradeLevels', message: `Choose from ${levelsLabel(cat.board, cat.grade_levels)}` }]);
+  }
+  const taken = await one<{ title: string }>(
+    'SELECT title FROM syllabuses WHERE board_catalogue_id = $1 AND grade_levels && $2::int[] LIMIT 1', [cat.id, b.gradeLevels]);
+  if (taken) throw conflict(`The school already has ${taken.title}`, 'SYLLABUS_EXISTS');
+  const subjectId = await subjectForCatalogue(req, cat, b.category, b.subjectId);
+  const created = await createSyllabus(req, {
+    board: cat.board, subjectId, gradeLevels: b.gradeLevels,
+    title: `${BOARD_PREFIX[cat.board]} ${cat.subject} — ${levelsLabel(cat.board, b.gradeLevels)}`,
+    notes: `Added from the ${CATALOGUE_SOURCES[cat.board as CatalogueBoard].short} catalogue. Add its units and papers from the documents for each ${cat.board === 'matriculation' ? 'standard' : 'class'}.`,
+  });
+  await query('UPDATE syllabuses SET board_catalogue_id = $2 WHERE id = $1', [created.id, cat.id]);
+  return created;
+}
+
+// =============================================================================
 // Syllabuses
 // =============================================================================
 export async function listSyllabuses(user: AuthUser, f: { board?: string; stage?: string; subjectId?: string; q?: string; active: 'true' | 'false' | 'all' }) {
@@ -112,7 +255,7 @@ export async function listSyllabuses(user: AuthUser, f: { board?: string; stage?
           pupils AS (SELECT s.id FROM students s WHERE s.deleted_at IS NULL AND s.status = 'active' AND s.section_id IN (SELECT id FROM secs))
      SELECT sy.id, sy.board, sy.syllabus_code AS "syllabusCode", sy.title, sy.stage, sy.awarding_body AS "awardingBody",
             sy.exam_series_years AS "examSeriesYears", sy.tiered, sy.grading, sy.is_active AS "isActive", sy.grade_levels AS "gradeLevels",
-            sub.id AS "subjectId", sub.code AS "subjectCode", sub.name AS subject, ${CAT_COLS},
+            sub.id AS "subjectId", sub.code AS "subjectCode", sub.name AS subject, ${CAT_COLS}, ${BOARD_CAT_COLS},
             (SELECT count(*) FROM syllabus_topics t WHERE t.syllabus_id = sy.id)::int AS topics,
             (SELECT count(*) FROM secs)::int AS "allSections",
             -- Sections in the grades that take this syllabus (e.g. Physics in Grade 10 only).
@@ -130,7 +273,7 @@ export async function listSyllabuses(user: AuthUser, f: { board?: string; stage?
                                                         'maxMarks', sc.max_marks::float, 'weightingPercent', sc.weighting_percent::float)
                               ORDER BY sc.sort_order, sc.paper_no)
                         FROM syllabus_components sc WHERE sc.syllabus_id = sy.id), '[]') AS components
-       FROM syllabuses sy JOIN subjects sub ON sub.id = sy.subject_id ${CAT_JOIN}
+       FROM syllabuses sy JOIN subjects sub ON sub.id = sy.subject_id ${CAT_JOIN} ${BOARD_CAT_JOIN}
       WHERE ${conds.join(' AND ')}
       -- Newest first, so a syllabus just added (e.g. from the Cambridge catalogue) leads the list;
       -- syllabuses set up together keep subject order.
@@ -140,7 +283,7 @@ export async function listSyllabuses(user: AuthUser, f: { board?: string; stage?
   const examYear = await finalExamYear();
   return rows.map((r) => {
     const slots = r.topics * r.sections;
-    return { ...withCambridge(r, examYear), coveragePct: slots ? Math.round((100 * r.covered) / slots) : null, componentCount: r.components.length };
+    return { ...withBoardCatalogue(withCambridge(r, examYear)), coveragePct: slots ? Math.round((100 * r.covered) / slots) : null, componentCount: r.components.length };
   });
 }
 
@@ -149,12 +292,12 @@ async function syllabusRow(id: string, db?: Queryable) {
     `SELECT sy.id, sy.board, sy.syllabus_code AS "syllabusCode", sy.title, sy.stage, sy.awarding_body AS "awardingBody",
             sy.exam_series_years AS "examSeriesYears", sy.tiered, sy.grading, sy.notes, sy.is_active AS "isActive",
             sy.grade_levels AS "gradeLevels", sub.id AS "subjectId", sub.code AS "subjectCode", sub.name AS subject, sy.updated_at AS "updatedAt",
-            ${CAT_COLS}
-       FROM syllabuses sy JOIN subjects sub ON sub.id = sy.subject_id ${CAT_JOIN} WHERE sy.id = $1`,
+            ${CAT_COLS}, ${BOARD_CAT_COLS}
+       FROM syllabuses sy JOIN subjects sub ON sub.id = sy.subject_id ${CAT_JOIN} ${BOARD_CAT_JOIN} WHERE sy.id = $1`,
     [id], db,
   );
   if (!s) throw notFound('Syllabus not found', 'SYLLABUS_NOT_FOUND');
-  return withCambridge(s, await finalExamYear(db));
+  return withBoardCatalogue(withCambridge(s, await finalExamYear(db)));
 }
 
 export async function getSyllabus(user: AuthUser, id: string) {

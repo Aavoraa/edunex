@@ -2,6 +2,7 @@
  * SAMPLE DATA — organisation, RBAC, demo users, staff, academic structure.
  */
 import bcrypt from 'bcryptjs';
+import { guessSubjectCategory } from '../../backend/src/services/grading-shared.js';
 import { PERMISSIONS, ROLES, permissionsFor } from '../../backend/src/config/rbac.js';
 import { bulkInsert, type Db, type SeedContext } from './context.js';
 
@@ -31,19 +32,25 @@ export const SECTION_PLAN: [string, number[], string[]][] = [
   ['plc', [6, 7, 8, 9], ['A']],
 ];
 
+type SeedBoard = 'matriculation' | 'cbse' | 'icse' | 'nios' | 'ib';
 /**
  * Classes on boards other than Cambridge IGCSE (board → campus → grade levels);
- * every other class follows IGCSE. Demo data: the Vadavalli campus runs Tamil
- * Nadu Matriculation and the Pollachi centre runs CBSE, Grades 6 to 9.
+ * every other class follows IGCSE. Demo data: the Vadavalli campus runs ICSE in
+ * Grades 1–5 and Tamil Nadu Matriculation in Grades 6–9; the Pollachi centre runs
+ * CBSE, Grades 6 to 9; Guduvanchery Grades 11–12 follow the IB Diploma Programme.
+ * NIOS has syllabuses and outcomes but no demo classes (assign it with "Move to…").
  */
-export const BOARD_CLASSES: Record<'matriculation' | 'cbse', Record<string, number[]>> = {
+export const BOARD_CLASSES: Record<SeedBoard, Record<string, number[]>> = {
   matriculation: { vdv: [6, 7, 8, 9] },
   cbse: { plc: [6, 7, 8, 9] },
+  icse: { vdv: [1, 2, 3, 4, 5] },
+  nios: {},
+  ib: { gdv: [11, 12] },
 };
 
 /** The board a seeded class follows. */
-export function boardFor(campus: string, grade: number): 'igcse' | 'matriculation' | 'cbse' {
-  for (const [board, campuses] of Object.entries(BOARD_CLASSES) as ['matriculation' | 'cbse', Record<string, number[]>][]) {
+export function boardFor(campus: string, grade: number): 'igcse' | SeedBoard {
+  for (const [board, campuses] of Object.entries(BOARD_CLASSES) as [SeedBoard, Record<string, number[]>][]) {
     if (campuses[campus]?.includes(grade)) return board;
   }
   return 'igcse';
@@ -214,7 +221,8 @@ export async function seedOrg(db: Db, ctx: SeedContext, demoPassword: string) {
 
   // ---- Subjects, classes, sections (plan: SECTION_PLAN) -------------------------
   for (const s of SUBJECTS) {
-    const r = await db.query('INSERT INTO subjects (code, name, stage, is_core) VALUES ($1,$2,$3,$4) RETURNING id', [s.code, s.name, s.stage, !['ART', 'HIN'].includes(s.code)]);
+    const r = await db.query('INSERT INTO subjects (code, name, stage, is_core, category) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+      [s.code, s.name, s.stage, !['ART', 'HIN'].includes(s.code), guessSubjectCategory(s.name)]);
     ctx.subjects[s.code] = r.rows[0].id;
   }
   const stageFor = (g: number) => (g <= 6 ? 'Cambridge Primary' : g <= 8 ? 'Cambridge Lower Secondary' : g <= 10 ? 'Cambridge IGCSE' : g === 11 ? 'Cambridge AS Level' : 'Cambridge A Level');
