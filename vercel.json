@@ -6,6 +6,25 @@
       "framework": "vite"
     },
     "api": {
+      "root": "backend-fastapi",
+      "framework": "fastapi",
+      "entrypoint": "app/main.py",
+      "bindings": [
+        {
+          "type": "service",
+          "service": "exam-vision",
+          "format": "url",
+          "env": "EXAM_VISION_URL"
+        },
+        {
+          "type": "service",
+          "service": "api-express",
+          "format": "url",
+          "env": "EXPRESS_FALLBACK_URL"
+        }
+      ]
+    },
+    "api-express": {
       "root": "backend",
       "framework": "express",
       "entrypoint": "src/vercel.ts",
