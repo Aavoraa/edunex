@@ -35,8 +35,10 @@ the student/tracking cluster (security tests), then the larger business modules,
 
 - `npm run dev` starts FastAPI on :4000 (what Vite proxies `/api` to) and Express on :4001. FastAPI answers the routes it
   has; any other `/api` route is forwarded to Express (`EXPRESS_FALLBACK_URL`), so the website works at every step.
-- Vercel (`vercel.json`): the `api` service is FastAPI (`backend-fastapi`, framework `fastapi`, bound to `exam-vision`);
-  Express runs as `api-express`, bound into `api` as `EXPRESS_FALLBACK_URL`. **Not yet verified on a Vercel deployment.**
+- Vercel (`vercel.json`): on `main` the `api` service is still Express (`backend`, entry `src/vercel.ts`), so production
+  runs the proven API until the port is complete. The strangler setup used on `feature/fastapi-api` (commit 3016433) —
+  `api` = FastAPI (`backend-fastapi`, framework `fastapi`) with Express as an `api-express` service bound in as
+  `EXPRESS_FALLBACK_URL` — was never tried on Vercel; restore it on a preview deployment to test it.
   Caveat: requests forwarded to Express all come from the FastAPI function, so Express's per-IP rate limit is shared.
 
 ## Conventions (keep the port mechanical)
