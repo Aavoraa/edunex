@@ -14,7 +14,8 @@
     "api": {
       "root": "backend",
       "framework": "express",
-      "entrypoint": "src/vercel.ts",
+      "buildCommand": "npm run build:vercel",
+      "entrypoint": "dist/vercel.mjs",
       "bindings": [
         {
           "type": "service",

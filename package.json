@@ -2,7 +2,6 @@
   "name": "edunex-smart-school-360",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
   "description": "Edunex Smart School 360 — full-stack school management platform (web + common REST API + PostgreSQL)",
   "workspaces": [
     "backend",
