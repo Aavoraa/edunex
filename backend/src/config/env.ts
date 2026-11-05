@@ -10,14 +10,15 @@ const ON_VERCEL = !!process.env.VERCEL;
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
-  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  /** Vercel's Neon integration sets DATABASE_URL; POSTGRES_URL (older Vercel Postgres) is used when it is absent. */
+  DATABASE_URL: z.preprocess((v) => v || process.env.POSTGRES_URL, z.string({ error: 'DATABASE_URL is required' }).min(1, 'DATABASE_URL is required')),
   /** Each Vercel function instance has its own pool, so keep it small there. */
   DATABASE_POOL_MAX: z.coerce.number().int().positive().default(ON_VERCEL ? 3 : 10),
   /**
    * TLS to the database: 'off' (local server), 'require' (encrypted; certificate not checked, as many
    * hosted poolers need) or 'verify' (encrypted and checked, against DATABASE_CA_CERT when given).
    */
-  DATABASE_SSL: z.enum(['off', 'require', 'verify']).default('off'),
+  DATABASE_SSL: z.enum(['off', 'require', 'verify']).default(ON_VERCEL ? 'require' : 'off'),
   /** PEM certificate of the database's CA; "\n" in the value is read as a line break. */
   DATABASE_CA_CERT: z.string().optional(),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
@@ -125,7 +126,12 @@ if (!parsed.success) {
 export const env = {
   ...parsed.data,
   onVercel: ON_VERCEL,
-  corsOrigins: parsed.data.CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean),
+  corsOrigins: [
+    ...parsed.data.CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean),
+    // The deployment's own addresses, which Vercel provides.
+    ...[process.env.VERCEL_PROJECT_PRODUCTION_URL, process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]
+      .filter((h): h is string => !!h).map((h) => `https://${h}`),
+  ],
   isProd: parsed.data.NODE_ENV === 'production',
   isTest: parsed.data.NODE_ENV === 'test',
 };

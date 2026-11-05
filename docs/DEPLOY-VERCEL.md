@@ -10,36 +10,37 @@
 
 Local development is unchanged (`npm run dev`); none of the settings below are needed on a PC.
 
-## Before the first deploy
+## Step by step (Neon database)
 
-1. **Database.** A hosted PostgreSQL that Vercel can reach. Run the migrations and seed against it
-   from a PC once: set `DATABASE_URL` (and `DATABASE_SSL`) in `.env`, then `npm run db:migrate`
-   (and `npm run db:seed` for demo data). Prefer the provider's connection pooler URL.
-2. **File store.** A private bucket on any S3-compatible store (AWS S3, Cloudflare R2, Supabase
-   Storage, MinIO) and an access key that can read and write it.
-3. **Paper Correction** keeps its tables in the same database, in its own `exam_vision` schema
-   (created on first use). Answer-sheet pages are stored in the database. On Vercel it reads and
-   marks a sheet within the request instead of in a background worker, so an upload with
-   automatic reading waits until the AI has finished (usually under two minutes).
+1. **Database.** Vercel -> your project -> **Storage** -> **Create Database** -> **Neon** -> connect it
+   to this project (Production and Preview). Neon sets `DATABASE_URL` in the project for you; the
+   API and Paper Correction both use it (TLS is on by default on Vercel).
+2. **Settings.** `.env.vercel` (made from `.env.vercel.example`, never committed) holds the other
+   settings with fresh secrets. Vercel -> **Settings** -> **Environment Variables** -> **Import .env**
+   and choose that file. Do not add `DATABASE_URL` or `EXAM_VISION_URL` there.
+3. **Tables and demo data**, once, from this PC: copy `.env.neon.example` to `.env.neon`, paste
+   Neon's connection string and a demo password, then run `npm run db:migrate:neon` and
+   `npm run db:seed:neon`. Run `db:migrate:neon` again after pulling new migrations.
+4. **Redeploy** (Deployments -> ... -> Redeploy) so the functions read the new settings.
 
-## Environment variables (Project → Settings → Environment Variables)
+If a setting is still missing, the sign-in page names it instead of failing.
+
+## Environment variables
 
 | Variable | Value |
 |---|---|
+| `DATABASE_URL` | set by the Neon integration (`POSTGRES_URL` is used if only that is set) |
 | `NODE_ENV` | `production` |
-| `DATABASE_URL` | the hosted database (pooler URL) |
-| `DATABASE_SSL` | `require` (or `verify` with `DATABASE_CA_CERT`) |
+| `DATABASE_SSL` | `require` (default on Vercel; `verify` with `DATABASE_CA_CERT`) |
 | `JWT_SECRET`, `JWT_REFRESH_SECRET` | two different random values, 32+ characters |
-| `CORS_ORIGINS` | the site's address, e.g. `https://edunex.example.com` |
+| `CORS_ORIGINS` | your own domain, if any; the `*.vercel.app` addresses are allowed automatically |
 | `COOKIE_SECURE` | `true` |
-| `STORAGE_DRIVER` | `s3` |
-| `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | the bucket and its key |
-| `S3_REGION`, `S3_ENDPOINT`, `S3_FORCE_PATH_STYLE` | as the provider documents (`auto` and the R2 endpoint for R2; `true` for Supabase/MinIO) |
 | `CRON_SECRET` | a random value, 16+ characters |
-| `EXAM_VISION_SECRET` | a random value, 32+ characters — read by both the API and Paper Correction |
+| `EXAM_VISION_SECRET` | a random value, 32+ characters, read by both the API and Paper Correction |
+| `STORAGE_DRIVER` | `local` to start (uploads do not last on Vercel); `s3` with the `S3_*` settings for a bucket |
 
-Do **not** set `EXAM_VISION_URL`: the binding injects it. Paper Correction finds the database
-through `DATABASE_URL` (or `EXAM_DATABASE_URL` to use a different one).
+Paper Correction keeps its tables in the same database, in its own `exam_vision` schema
+(created on first use), and on Vercel marks a sheet within the request.
 
 ## Scheduled work
 

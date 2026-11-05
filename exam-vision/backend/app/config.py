@@ -32,7 +32,8 @@ ON_VERCEL = bool(os.getenv("VERCEL"))
 
 def _database_url() -> str:
     """PostgreSQL when configured (EXAM_DATABASE_URL, or on Vercel the project's DATABASE_URL); else SQLite."""
-    url = os.getenv("EXAM_DATABASE_URL") or (os.getenv("DATABASE_URL", "") if ON_VERCEL else "")
+    url = os.getenv("EXAM_DATABASE_URL") or (
+        (os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL", "")) if ON_VERCEL else "")
     if url.startswith("postgres://"):
         url = "postgresql://" + url[len("postgres://"):]
     if url.startswith("postgresql://"):
