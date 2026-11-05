@@ -6,7 +6,7 @@ applies to every route registered after it.
 """
 from ..http import Router
 from ..middleware.auth import authenticate
-from . import auth_routes
+from . import auth_routes, core_routes
 
 api = Router()
 
@@ -19,7 +19,8 @@ api.use('/auth', auth_routes.r)
 # ---- Authenticated ------------------------------------------------------
 # Everything below requires a valid access token; each route additionally declares the permission it needs.
 api.use(authenticate)
-# TODO(port), in this order: core ('/'), students ('/students'), tracking ('/tracking'), devices ('/devices'),
+api.use('/', core_routes.r)  # notifications, tasks, search, lookups, audit, users, settings, documents
+# TODO(port), in this order: students ('/students'), tracking ('/tracking'), devices ('/devices'),
 # device-assignments ('/device-assignments'), parents ('/parents'), dashboard ('/dashboard'), academics, admissions,
 # finance, workforce, safety, parents_experience, operations, innovation, group, intelligence, exam_correction,
 # planning, jobcards, parentlog, syllabus (all at '/').

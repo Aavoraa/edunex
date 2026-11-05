@@ -198,7 +198,6 @@ async def read_body(request: Request) -> tuple[Any, list[UploadedFile]]:
             raise AppError(413, 'PAYLOAD_TOO_LARGE', 'Request body too large')
         return clean(parse_query(raw.decode('utf-8', 'replace'))), []
     if ctype == 'multipart/form-data':
-        limit = int(settings.UPLOAD_MAX_MB * 1024 * 1024)
         try:
             form = await request.form(max_files=10, max_fields=200)
         except Exception as err:
@@ -207,9 +206,7 @@ async def read_body(request: Request) -> tuple[Any, list[UploadedFile]]:
         files: list[UploadedFile] = []
         for k, val in form.multi_items():
             if hasattr(val, 'read'):
-                data = await val.read()
-                if len(data) > limit:
-                    raise AppError(400, 'UPLOAD_LIMIT_FILE_SIZE', 'File too large')
+                data = await val.read()  # size limits are checked by the route's upload step (multer)
                 files.append(UploadedFile(k, val.filename or '', val.content_type or 'application/octet-stream', data))
             else:
                 if k in body:

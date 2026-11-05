@@ -5,14 +5,14 @@ Schema, migrations and seed stay in `database/` and are still run by `npm run db
 
 ## Status
 
-**Routes ported: 7 of ~620 (auth). Tests ported: 24 pytest (auth + Vercel) of 163 vitest.**
+**Routes ported: 30 of ~620 (auth, core). Tests: 39 pytest passing (auth, core, Vercel); vitest has 163.**
 
 | # | Module (Express files) | Routes | vitest suites to port | Status |
 |---|---|---:|---|---|
 | 0 | Core runtime: config/env, db, errors, response, validate, security, request id, helmet, CORS, health, cron, 404 | – | vercel.test.ts | ✅ done |
 | 1 | **auth** — auth.routes, auth.controller, auth.service, token.service, audit.service, middleware/auth, rbac checks | 7 | security.test.ts › authentication, error envelope (part); api-core › authentication | ✅ done (`tests/test_auth.py`) |
-| 2 | core.routes (notifications, tasks, search, lookups, audit, users, settings, documents) + documents/storage/access services, utils (pagination, sql Where, codes, csv) | 23 | api-core (admin guards, upload 400), admin-user-edit, security › “never returns password hashes”, error envelope (lookups) | ⏳ next |
-| 3 | public.routes | 3 | – | ⏳ |
+| 2 | core.routes (notifications, tasks, search, lookups, audit, users, settings, documents) + documents/storage/access services, utils (pagination, sql Where, codes, csv, upload=multer) | 23 | api-core (admin guards, upload 400), admin-user-edit, security › “never returns password hashes”, error envelope (lookups) | ✅ done (`tests/test_core.py`) |
+| 3 | public.routes | 3 | – | ⏳ next |
 | 4 | students (+controller, students.service), tracking, devices (+ /v1 ingest), parents | 13+4+13+9 | students-tracking, devices, student-transport-edit, achievement-certificate, security › RBAC/parent isolation/teacher scope/audit, api-core › students, tracking consent | ⏳ |
 | 5 | dashboard (+ owner-overview, dashboard.service) | 2 | – | ⏳ |
 | 6 | academics (academics-*.service), syllabus, grading | 62+19 | academics-parents, grading-boards, syllabus-catalogue | ⏳ |
@@ -71,3 +71,21 @@ the same way as for `npm test`.
 - 2026-11-05 — Session 1: runtime core, zod-compatible validation, Express-style router, auth module, pytest suite
   (24 passing), dev script + vercel.json wiring with Express fallback. Website sign-in and page reload verified in the
   browser through FastAPI.
+- 2026-11-05 — Session 1 (cont.): core module (23 routes) with storage/documents/access services, rbac constants,
+  pagination/Where/codes/csv/upload utils; 15 more tests (39 total passing).
+
+## Ported pieces other modules can reuse
+
+`app/services`: audit_service, notification_service (notify_users/roles/guardians, dispatch_pending), whatsapp_provider,
+token_service, auth_service (hash_password), access_service (student_scope, authorize_student, authorize_student_tracking,
+assert_self_parent, resolve_student_id, can_access_student, is_guardian_of), storage_service, documents_service (upload,
+verify_uploaded_file, open_stored_file, safe_filename). `app/utils`: pagination, sql.Where, codes.next_code, csv
+(parse_csv, send_csv, csv_upload, read_csv_records, csv_document), upload.Multer. `app/rbac`: PERMISSIONS, ALL_PERMISSIONS,
+SUPER_ADMIN_ONLY (role definitions stay in the TS seed).
+
+## Known differences / to check later
+
+- Express matches routes case-insensitively and ignores a trailing slash; Starlette is case-sensitive. The frontend uses
+  exact paths, so this has not mattered.
+- CORS preflight from a disallowed origin: Starlette answers 400, Express 204 without CORS headers (both refuse).
+- Rate limits are per process (in memory), as with express-rate-limit's memory store.
