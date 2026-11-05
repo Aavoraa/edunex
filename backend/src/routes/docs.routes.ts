@@ -10,7 +10,15 @@ import { logger } from '../utils/logger.js';
  * OpenAPI document = docs/openapi/base.yaml + every docs/openapi/paths/*.yaml
  * (one file per module), merged at start-up.
  */
-const here = path.dirname(fileURLToPath(import.meta.url));
+// In Vercel's CommonJS bundle import.meta.url is undefined; the docs are then looked up from the working directory.
+function moduleDir() {
+  try {
+    return path.dirname(fileURLToPath(import.meta.url));
+  } catch {
+    return path.resolve(process.cwd(), 'src', 'routes');
+  }
+}
+const here = moduleDir();
 const root = [path.resolve(here, '../../../docs/openapi'), path.resolve(here, '../../../../docs/openapi')].find((p) => existsSync(p));
 
 export function buildSpec() {
