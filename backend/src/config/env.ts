@@ -98,16 +98,27 @@ const schema = z.object({
       if (!c[k]) ctx.addIssue({ code: 'custom', path: [k], message: 'is required when STORAGE_DRIVER=s3' });
     }
   }
-  if (c.EXAM_VISION_URL && (c.EXAM_VISION_SECRET ?? '').length < 32) {
+  // On Vercel the service binding always sets EXAM_VISION_URL; there a missing secret only leaves
+  // Paper Correction "not connected" (exam-correction.service configured()) instead of stopping the API.
+  if (c.EXAM_VISION_URL && !ON_VERCEL && (c.EXAM_VISION_SECRET ?? '').length < 32) {
     ctx.addIssue({ code: 'custom', path: ['EXAM_VISION_SECRET'], message: 'must be at least 32 characters when EXAM_VISION_URL is set' });
   }
 });
 
+/** Thrown on Vercel instead of exiting, so the function can answer with what is missing (src/vercel.ts). */
+export class ConfigError extends Error {
+  constructor(readonly issues: string[]) {
+    super(`Invalid environment configuration: ${issues.join('; ')}`);
+  }
+}
+
 const parsed = schema.safeParse(process.env);
 if (!parsed.success) {
-  const issues = parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
+  // Names and rules only: never the values, which may be secrets.
+  const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
   // eslint-disable-next-line no-console
-  console.error(`Invalid environment configuration:\n${issues}\nSee .env.example.`);
+  console.error(`Invalid environment configuration:\n${issues.map((i) => `  - ${i}`).join('\n')}\nSee .env.example.`);
+  if (ON_VERCEL) throw new ConfigError(issues);
   process.exit(1);
 }
 

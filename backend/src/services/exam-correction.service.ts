@@ -26,7 +26,7 @@ export type ExamRole = 'admin' | 'coordinator' | 'teacher';
 const UPSTREAM_TIMEOUT_MS = 10 * 60_000;
 const SYNC_EVERY_MS = 5 * 60_000;
 
-export const configured = () => !!env.EXAM_VISION_URL && !!env.EXAM_VISION_SECRET;
+export const configured = () => !!env.EXAM_VISION_URL && (env.EXAM_VISION_SECRET ?? '').length >= 32;
 
 const notConnected = () =>
   new AppError(503, 'EXAM_VISION_NOT_CONFIGURED', 'Paper Correction is not connected. Set EXAM_VISION_URL and EXAM_VISION_SECRET.');

@@ -30,7 +30,24 @@ function run(name, cmd, args, opts = {}) {
   procs.push(p);
 }
 
-run('api', npm, ['run', 'dev', '--workspace', 'backend']);
+// The API is the FastAPI app in backend-fastapi/ (port 4000, reloads on change). Modules not ported yet
+// are answered by the Express API (backend/, port 4001), to which FastAPI forwards unknown /api routes
+// (EXPRESS_FALLBACK_URL). See backend-fastapi/PORTING.md. Without the Python environment the Express
+// API serves port 4000 on its own, as before.
+const apiDir = path.join(root, 'backend-fastapi');
+const apiPython = path.join(apiDir, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
+const apiPort = process.env.PORT ?? '4000';
+if (existsSync(apiPython)) {
+  const expressPort = process.env.EXPRESS_PORT ?? '4001';
+  run('express', npm, ['run', 'dev', '--workspace', 'backend'], { env: { ...process.env, PORT: expressPort } });
+  run('api', apiPython, ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', apiPort, '--reload', '--reload-dir', 'app', '--no-server-header'], {
+    cwd: apiDir, direct: true,
+    env: { ...process.env, PYTHONUNBUFFERED: '1', EXPRESS_FALLBACK_URL: `http://127.0.0.1:${expressPort}` },
+  });
+} else {
+  console.log('[api] backend-fastapi/.venv not found: serving the Express API (see backend-fastapi/PORTING.md to set up FastAPI)');
+  run('api', npm, ['run', 'dev', '--workspace', 'backend']);
+}
 run('web', npm, ['run', 'dev', '--workspace', 'frontend']);
 
 // Paper Correction: started here when EXAM_VISION_URL points at this machine and the
