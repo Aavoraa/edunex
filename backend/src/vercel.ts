@@ -2,28 +2,29 @@
  * Vercel entry point: the Express app as a function. Unlike server.ts (the local server) it does not
  * listen on a port or start the notification dispatcher timer; functions only run while serving a request.
  *
- * The app is imported statically: Vercel's builder packs this entry and everything it imports into one
- * CommonJS file, and a dynamic import('./app.js') would be left outside it as an ES module that the
- * function cannot load ("Cannot use import statement outside a module").
- *
- * Missing or invalid settings: env.ts throws a ConfigError while the module loads (logged with the names
- * of the settings, never their values). Errors while building the app give a stand-in that answers 503.
+ * When the project's environment variables are missing or invalid, a stand-in app answers every request
+ * with 503 and the names of the settings to fix (never their values), instead of the function crashing
+ * with Vercel's opaque FUNCTION_INVOCATION_FAILED.
  */
 import express from 'express';
-import { createApp } from './app.js';
 
-function load(): express.Express {
+async function load(): Promise<express.Express> {
   try {
+    const { createApp } = await import('./app.js');
     return createApp();
   } catch (err) {
+    const issues = (err as { issues?: unknown }).issues;
+    const message = Array.isArray(issues)
+      ? `The server is not configured. In Vercel, set or fix these environment variables, then redeploy: ${issues.join('; ')}`
+      : 'The server failed to start. See the function logs in Vercel.';
     // eslint-disable-next-line no-console
-    console.error('The server failed to start', err);
+    console.error(message, Array.isArray(issues) ? '' : err);
     const fallback = express();
     fallback.use((_req, res) => {
-      res.status(503).json({ success: false, error: 'SERVER_NOT_CONFIGURED', message: 'The server failed to start. See the function logs in Vercel.' });
+      res.status(503).json({ success: false, error: 'SERVER_NOT_CONFIGURED', message });
     });
     return fallback;
   }
 }
 
-export default load();
+export default await load();
